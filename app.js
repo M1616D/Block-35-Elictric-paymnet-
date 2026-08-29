@@ -1092,7 +1092,9 @@ async function renderBills() {
     list.innerHTML = filtered.map(r => {
         const bill = AppState.bills.find(b => b.residentId === r.id && b.monthKey === monthKey);
         const watts = bill ? bill.wattsUsed : '';
-        const etb = bill ? bill.etbAmount : 0;
+        // Own Reader pays fixed amount, Watt Counter pays by EEP calc
+        const fixedAmt = parseFloat(AppState.settings.fixedAmount) || 0;
+        const etb = bill ? bill.etbAmount : (r.houseType === 'reader' && fixedAmt > 0 ? fixedAmt : 0);
 
         const avatar = r.photo
             ? `<img src="${r.photo}" class="w-9 h-9 rounded-full object-cover" alt="">`
@@ -1114,7 +1116,15 @@ async function renderBills() {
         input.addEventListener('input', () => {
             const val = parseFloat(input.value) || 0;
             const etbEl = list.querySelector(`.watts-etb[data-resident-id="${input.dataset.residentId}"]`);
-            if (etbEl) etbEl.textContent = `${Utils.formatCurrency(calculateEEPBill(val).totalAmount)} ETB`;
+            if (!etbEl) return;
+            const rid = input.dataset.residentId;
+            const rr = AppState.residents.find(r => r.id === rid);
+            if (rr && rr.houseType === 'reader') {
+                const fixed = parseFloat(AppState.settings.fixedAmount) || 0;
+                etbEl.textContent = `${Utils.formatCurrency(fixed)} ETB`;
+            } else {
+                etbEl.textContent = `${Utils.formatCurrency(calculateEEPBill(val).totalAmount)} ETB`;
+            }
         });
     });
 }
@@ -1283,6 +1293,7 @@ function renderSettings() {
     if (el('settingBuildingAddress')) el('settingBuildingAddress').value = s.buildingAddress || '';
     if (el('settingContactPhone')) el('settingContactPhone').value = s.contactPhone || '';
     if (el('settingEtbPerWatt')) el('settingEtbPerWatt').value = s.etbPerWatt || 6.4592;
+    if (el('settingFixedAmount')) el('settingFixedAmount').value = s.fixedAmount || 0;
     if (el('settingTotalFloors')) el('settingTotalFloors').value = s.totalFloors || 8;
     if (el('settingHousesPerFloor')) el('settingHousesPerFloor').value = s.housesPerFloor || 4;
     if (el('settingGroundHouses')) el('settingGroundHouses').value = s.groundHouses || 4;
@@ -1357,7 +1368,6 @@ async function openEditResidentModal(id) {
     document.getElementById('resRoomType').value = r.roomType || '2br';
     document.getElementById('resPhone').value = r.phone || '';
     document.getElementById('resMembers').value = r.members || 1;
-    document.getElementById('resDefaultAmount').value = r.defaultAmount || '';
     document.getElementById('resNotes').value = r.notes || '';
     document.getElementById('resPhoto').value = r.photo || '';
     if (r.photo) {
@@ -1486,7 +1496,6 @@ async function saveResident(e) {
         lastName: document.getElementById('resLastName').value.trim(),
         phone: document.getElementById('resPhone').value.trim(),
         members: parseInt(document.getElementById('resMembers').value) || 1,
-        defaultAmount: parseFloat(document.getElementById('resDefaultAmount').value) || 0,
         roomType: document.getElementById('resRoomType').value,
         photo: document.getElementById('resPhoto').value,
         notes: document.getElementById('resNotes').value.trim(),
@@ -1842,6 +1851,7 @@ function setupSettingsUI() {
             AppState.settings.buildingAddress = document.getElementById('settingBuildingAddress').value.trim();
             AppState.settings.contactPhone = document.getElementById('settingContactPhone').value.trim();
             AppState.settings.etbPerWatt = document.getElementById('settingEtbPerWatt').value;
+            AppState.settings.fixedAmount = parseFloat(document.getElementById('settingFixedAmount').value) || 0;
             AppState.settings.totalFloors = document.getElementById('settingTotalFloors').value;
             AppState.settings.housesPerFloor = document.getElementById('settingHousesPerFloor').value;
             AppState.settings.groundHouses = document.getElementById('settingGroundHouses').value;
