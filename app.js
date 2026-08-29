@@ -7,7 +7,7 @@
 const TRANSLATIONS = {
     en: {
         nav_dashboard: 'Dashboard', nav_residents: 'Residents', nav_watts: 'Enter Watts',
-        nav_payments: 'Payments', nav_reports: 'Reports', nav_sync: 'Cloud Sync', nav_settings: 'Settings', nav_cover: 'Cover Payment',
+        nav_payments: 'Payments', nav_reports: 'Reports', nav_sync: 'Cloud Sync', nav_settings: 'Settings', nav_cover: 'Cover Payment', nav_receipts: 'Receipts',
         nav_dashboard_short: 'Home', nav_settings_short: 'Settings', nav_residents_short: 'Residents', nav_watts_short: 'Watts',
         nav_payments_short: 'Pay', nav_reports_short: 'Reports',
         stat_total_houses: 'Total Houses', stat_paid: 'Paid', stat_pending: 'Pending', stat_total_etb: 'Total ETB',
@@ -65,7 +65,7 @@ const TRANSLATIONS = {
     },
     am: {
         nav_dashboard: 'ዳሽቦርድ', nav_residents: 'ነጋዴዎች', nav_watts: 'ዋት መዝገብ',
-        nav_payments: 'ክፍያ', nav_reports: 'ሪፖርት', nav_sync: 'የደመና ማስማያ', nav_settings: 'ማስተካከያ', nav_cover: 'ኮቨር ክፍያ',
+        nav_payments: 'ክፍያ', nav_reports: 'ሪፖርት', nav_sync: 'የደመና ማስማያ', nav_settings: 'ማስተካከያ', nav_cover: 'ኮቨር ክፍያ', nav_receipts: 'ደብዳቤ',
         nav_dashboard_short: 'መነሻ', nav_settings_short: 'ማስተካከያ', nav_residents_short: 'ነጋዴዎች', nav_watts_short: 'ዋት',
         nav_payments_short: 'ክፍያ', nav_reports_short: 'ሪፖርት',
         stat_total_houses: 'ጠቅላላ ቤት', stat_paid: 'የተከፈለ', stat_pending: 'በመጠባበቅ ላይ', stat_total_etb: 'ጠቅላላ ብር',
@@ -170,7 +170,7 @@ function toggleTheme() { setTheme(currentTheme === 'dark' ? 'light' : 'dark'); }
 
 // ==================== DATABASE (IndexedDB) ====================
 const DB_NAME = 'CondoBillDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 class Database {
     constructor() { this.db = null; }
@@ -191,6 +191,12 @@ class Database {
                     s.createIndex('residentId', 'residentId', { unique: false });
                     s.createIndex('monthKey', 'monthKey', { unique: false });
                     s.createIndex('residentMonth', ['residentId', 'monthKey'], { unique: true });
+                }
+                if (!db.objectStoreNames.contains('receipts')) {
+                    const s = db.createObjectStore('receipts', { keyPath: 'id' });
+                    s.createIndex('paymentId', 'paymentId', { unique: false });
+                    s.createIndex('residentId', 'residentId', { unique: false });
+                    s.createIndex('monthKey', 'monthKey', { unique: false });
                 }
                 if (!db.objectStoreNames.contains('payments')) {
                     const s = db.createObjectStore('payments', { keyPath: 'id' });
@@ -246,11 +252,11 @@ class Database {
         return new Promise((r, j) => { const req = this.db.transaction(store, 'readwrite').objectStore(store).clear(); req.onsuccess = () => r(); req.onerror = (e) => j(e.target.error); });
     }
     async clearAll() {
-        for (const n of ['residents', 'bills', 'payments', 'activity', 'syncLog']) await this.clear(n);
+        for (const n of ['residents', 'bills', 'payments', 'activity', 'syncLog', 'receipts']) await this.clear(n);
     }
     async exportAll() {
         const data = {};
-        for (const n of ['residents', 'bills', 'payments', 'settings', 'activity', 'syncLog']) data[n] = await this.getAll(n);
+        for (const n of ['residents', 'bills', 'payments', 'settings', 'activity', 'syncLog', 'receipts']) data[n] = await this.getAll(n);
         return data;
     }
     async importAll(data) {
@@ -283,7 +289,7 @@ const Utils = {
 const AppState = {
     currentPage: 'dashboard',
     currentMonth: new Date().getMonth() + 1, currentYear: new Date().getFullYear(),
-    residents: [], bills: [], payments: [], settings: {}, activity: [], syncLog: [],
+    residents: [], bills: [], payments: [], settings: {}, activity: [], syncLog: [], receipts: [],
     batchIndex: 0, batchHouses: [],
     currentFilter: { floor: 'all', search: '', billFloor: 'all', payStatus: 'all', reportTab: 'overview' },
     lockTimeout: 5, lockTimer: null, lastActivity: Date.now(),
@@ -325,7 +331,7 @@ function getReportData(month, year) {
     const totalFloors = parseInt(AppState.settings.totalFloors || 8);
     const housesPerFloor = parseInt(AppState.settings.housesPerFloor || 4);
     const groundHouses = parseInt(AppState.settings.groundHouses || 4);
-    const rate = parseFloat(AppState.settings.etbPerWatt || 0.15);
+    const rate = parseFloat(AppState.settings.etbPerWatt) || 6.4592;
 
     const totalHouses = groundHouses + (totalFloors - 1) * housesPerFloor;
     const floorData = {};
@@ -364,6 +370,306 @@ function getReportData(month, year) {
     const totalCollected = Object.values(floorData).reduce((s, f) => s + f.collected, 0);
 
     return { totalHouses, paid, pending, overdue, floorData, totalExpected, totalCollected, month, year };
+}
+
+
+// ==================== EEP TARIFF CALCULATION (Ethiopian Electric Power) ====================
+// Based on real EEP Commercial tariff: Energy + Service + Regulatory + Tax
+function calculateEEPBill(kWh, options = {}) {
+    const rate = options.rate || parseFloat(AppState.settings.etbPerWatt) || 6.4592; // ETB per kWh from admin Settings
+    const serviceChargeRate = options.serviceRate || 0.12366; // 12.366%
+    const regulatoryRate = options.regulatoryRate || 0.005; // 0.5%
+    const taxRate = options.taxRate || 0.15; // 15% VAT
+    const billingDays = options.billingDays || 30;
+    const interestPaid = options.interestPaid || 0;
+
+    // Display values (rounded to 2 decimals)
+    const energyCharge = Math.round(kWh * rate * 100) / 100;
+    const serviceCharge = Math.round(energyCharge * serviceChargeRate * 100) / 100;
+    // Raw values for regulatory/tax (use unrounded energy + service)
+    const rawSubtotal = kWh * rate + (kWh * rate * serviceChargeRate);
+    const regulatoryFee = Math.round(rawSubtotal * regulatoryRate * 100) / 100;
+    const tax = Math.round(rawSubtotal * taxRate * 100) / 100;
+    // Total = sum of all rounded line items
+    const subtotal = energyCharge + serviceCharge;
+    const totalAmount = Math.round((subtotal + regulatoryFee + tax - interestPaid) * 100) / 100;
+
+    return {
+        tariffType: 'Commercial',
+        ratePerKWh: rate,
+        kWh,
+        billingDays,
+        energyCharge,
+        serviceCharge,
+        serviceChargeRate: serviceChargeRate * 100,
+        subtotal,
+        regulatoryFee,
+        regulatoryRate: regulatoryRate * 100,
+        tax,
+        taxRate: taxRate * 100,
+        interestPaid,
+        totalAmount
+    };
+}
+
+// ==================== RECEIPT GENERATOR ====================
+function generateReceiptHTML(payment, bill, resident, eepCalc, settings) {
+    const buildingName = settings.buildingName || 'Block 35';
+    const address = settings.buildingAddress || '';
+    const phone = settings.contactPhone || '';
+    const invoiceNo = `INV-${(payment.id || '').substring(0, 8).toUpperCase()}`;
+    const payDate = payment.date ? new Date(payment.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    const monthName = Utils.getMonthName(payment.month || 1);
+    const receiptNum = payment.receipt || `RCT-${(payment.id || '').substring(0, 8).toUpperCase()}`;
+    const residentName = resident ? `${resident.firstName} ${resident.lastName}` : 'Unknown';
+    const houseNumber = resident?.houseNumber || '—';
+    const phoneNum = resident?.phone || '—';
+
+    // Build EEP breakdown rows
+    const kwh = eepCalc ? eepCalc.kWh : (bill?.wattsUsed || 0);
+    const energyCharge = eepCalc ? eepCalc.energyCharge : (bill?.etbAmount || 0);
+    const serviceCharge = eepCalc ? eepCalc.serviceCharge : 0;
+    const regulatoryFee = eepCalc ? eepCalc.regulatoryFee : 0;
+    const tax = eepCalc ? eepCalc.tax : 0;
+    const interest = eepCalc ? eepCalc.interestPaid : 0;
+    const totalAmount = eepCalc ? eepCalc.totalAmount : (payment.amountPaid || 0);
+    const ratePerKWh = eepCalc ? eepCalc.ratePerKWh : (parseFloat(settings.etbPerWatt) || 6.4592);
+    const billingDays = eepCalc ? eepCalc.billingDays : 30;
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Receipt - ${residentName}</title>
+    <script src="https://cdn.tailwindcss.com"><\/script>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"><\/script>
+    <script>
+    tailwind.config = {
+        theme: { extend: {
+            fontFamily: { sans: ['Montserrat', 'sans-serif'] },
+            colors: {
+                invoice: { bg: '#e5e5e5', paper: '#2a2c31', paperDark: '#1e1f23', red: '#e91e32', redDark: '#b81223', textMain: '#ffffff', textMuted: '#a0a0a0', border: '#3d4047' }
+            }
+        }}
+    }
+    <\/script>
+    <style>
+        body { background-color: #e5e5e5; padding: 1.5rem 0.5rem; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
+        .invoice-container { width: 100%; max-width: 800px; background-color: #2a2c31; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); position: relative; overflow: hidden; color: #ffffff; }
+        .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.03; pointer-events: none; width: 60%; z-index: 0; }
+        .top-shape { position: absolute; top: 0; right: 0; width: 65%; height: 200px; background-color: #e91e32; clip-path: polygon(100% 0, 100% 100%, 80% 50%, 0 0); z-index: 10; }
+        .top-shape-shadow { position: absolute; top: 0; right: 0; width: 75%; height: 160px; background-color: #1a1a1d; clip-path: polygon(100% 0, 100% 100%, 75% 60%, 0 0); z-index: 5; opacity: 0.5; }
+        .bottom-shape { position: absolute; bottom: 0; left: 0; width: 40%; height: 100px; background-color: #e91e32; clip-path: polygon(0 0, 20% 100%, 0 100%); z-index: 10; }
+        .bottom-shape-shadow { position: absolute; bottom: 0; left: 0; width: 50%; height: 120px; background-color: #1a1a1d; clip-path: polygon(0 0, 40% 100%, 0 100%); z-index: 5; opacity: 0.3; }
+        .table-row-dark { background-color: #212328; border-radius: 8px; margin-bottom: 4px; }
+        @media print { body { padding: 0; background: #fff; } .no-print { display: none !important; } .invoice-container { box-shadow: none; } }
+    </style>
+</head>
+<body class="antialiased">
+    <main class="invoice-container flex flex-col pt-12 pb-16 px-6 sm:px-12 z-20">
+        <div class="top-shape-shadow"></div>
+        <div class="top-shape flex justify-end items-start pr-8 sm:pr-12 pt-10 sm:pt-12">
+            <h1 class="text-2xl sm:text-4xl font-bold text-white tracking-wider z-20 relative mr-4 sm:mr-8 mt-2">Receipt</h1>
+        </div>
+        <div class="bottom-shape-shadow"></div>
+        <div class="bottom-shape"></div>
+        <svg class="watermark" viewBox="0 0 100 100" fill="white"><polygon points="50,10 90,50 50,90 10,50"/><polygon points="50,25 75,50 50,75 25,50" fill="#2a2c31"/></svg>
+
+        <div class="relative z-20 w-full mb-8">
+            <div class="flex items-center mb-8">
+                <div class="w-10 h-10 mr-3">
+                    <svg viewBox="0 0 100 100" class="w-full h-full"><polygon points="50,0 100,50 50,100 0,50" fill="#ffffff"/><polygon points="50,25 75,50 50,75 25,50" fill="#2a2c31"/><polygon points="50,10 90,50 50,90 10,50" fill="#e91e32" transform="scale(0.8) translate(12,12)"/></svg>
+                </div>
+                <div><h2 class="text-lg sm:text-xl font-bold tracking-wide leading-none">${buildingName}</h2>
+                <p class="text-[10px] text-invoice-textMuted">Electrical Payment System</p></div>
+            </div>
+
+            <div class="flex items-center justify-between w-full border-t border-b border-invoice-border py-3 sm:py-4 mb-6">
+                <div class="text-center w-1/3 border-r border-invoice-border">
+                    <p class="text-[10px] text-invoice-textMuted mb-1">Date :</p>
+                    <p class="text-xs sm:text-sm font-semibold">${payDate}</p>
+                </div>
+                <div class="text-center w-1/3 border-r border-invoice-border">
+                    <p class="text-[10px] text-invoice-textMuted mb-1">Invoice No :</p>
+                    <p class="text-xs sm:text-sm font-semibold">${invoiceNo}</p>
+                </div>
+                <div class="text-center w-1/3">
+                    <p class="text-[10px] text-invoice-textMuted mb-1">Receipt # :</p>
+                    <p class="text-xs sm:text-sm font-semibold">${receiptNum}</p>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-start w-full">
+                <div class="w-1/2 pr-4 sm:pr-8">
+                    <h3 class="text-sm sm:text-lg font-semibold mb-2">${buildingName}</h3>
+                    <div class="text-[9px] sm:text-xs text-invoice-textMuted leading-relaxed space-y-0.5">
+                        ${address ? `<p>${address}</p>` : ''}
+                        ${phone ? `<p>Contact: ${phone}</p>` : ''}
+                        <p>${monthName} ${payment.year || new Date().getFullYear()} Bill</p>
+                    </div>
+                </div>
+                <div class="w-1/2 pl-4 sm:pl-8">
+                    <p class="text-xs sm:text-sm mb-1">Invoice To :</p>
+                    <h3 class="text-sm sm:text-lg font-semibold mb-2">${residentName}<br><span class="text-xs sm:text-base font-normal">House ${houseNumber}</span></h3>
+                    <div class="text-[9px] sm:text-xs text-invoice-textMuted leading-relaxed space-y-0.5">
+                        <p>Phone: ${phoneNum}</p>
+                        ${resident?.roomType ? `<p>Room: ${resident.roomType.toUpperCase()}</p>` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="relative z-20 w-full mb-6">
+            <div class="bg-invoice-red rounded-full flex px-4 sm:px-6 py-2 sm:py-3 mb-3 text-[10px] sm:text-sm font-semibold">
+                <div class="w-[8%] text-center">SL</div>
+                <div class="w-[42%] sm:w-[45%] pl-2 sm:pl-4">Description</div>
+                <div class="w-[17%] text-center">Rate</div>
+                <div class="w-[15%] text-center">Unit</div>
+                <div class="w-[18%] text-right pr-1 sm:pr-2">Amount (ETB)</div>
+            </div>
+            <div class="space-y-1">
+                <div class="table-row-dark flex items-center px-4 sm:px-6 py-2.5 sm:py-3 text-[10px] sm:text-xs">
+                    <div class="w-[8%] text-center text-invoice-textMuted">01</div>
+                    <div class="w-[42%] sm:w-[45%] pl-2 sm:pl-4 font-medium text-gray-200">Energy Charge (${kwh.toFixed(2)} kWh × ${ratePerKWh})</div>
+                    <div class="w-[17%] text-center text-invoice-textMuted">${ratePerKWh}</div>
+                    <div class="w-[15%] text-center text-invoice-textMuted">${kwh.toFixed(1)} kWh</div>
+                    <div class="w-[18%] text-right font-medium pr-1 sm:pr-2">${energyCharge.toFixed(2)}</div>
+                </div>
+                <div class="table-row-dark flex items-center px-4 sm:px-6 py-2.5 sm:py-3 text-[10px] sm:text-xs">
+                    <div class="w-[8%] text-center text-invoice-textMuted">02</div>
+                    <div class="w-[42%] sm:w-[45%] pl-2 sm:pl-4 font-medium text-gray-200">Service Charge (12.366%)</div>
+                    <div class="w-[17%] text-center text-invoice-textMuted">12.366%</div>
+                    <div class="w-[15%] text-center text-invoice-textMuted">—</div>
+                    <div class="w-[18%] text-right font-medium pr-1 sm:pr-2">${serviceCharge.toFixed(2)}</div>
+                </div>
+                <div class="table-row-dark flex items-center px-4 sm:px-6 py-2.5 sm:py-3 text-[10px] sm:text-xs">
+                    <div class="w-[8%] text-center text-invoice-textMuted">03</div>
+                    <div class="w-[42%] sm:w-[45%] pl-2 sm:pl-4 font-medium text-gray-200">Regulatory Fee (0.5%)</div>
+                    <div class="w-[17%] text-center text-invoice-textMuted">0.5%</div>
+                    <div class="w-[15%] text-center text-invoice-textMuted">—</div>
+                    <div class="w-[18%] text-right font-medium pr-1 sm:pr-2">${regulatoryFee.toFixed(2)}</div>
+                </div>
+                <div class="table-row-dark flex items-center px-4 sm:px-6 py-2.5 sm:py-3 text-[10px] sm:text-xs">
+                    <div class="w-[8%] text-center text-invoice-textMuted">04</div>
+                    <div class="w-[42%] sm:w-[45%] pl-2 sm:pl-4 font-medium text-gray-200">VAT Tax (15%)</div>
+                    <div class="w-[17%] text-center text-invoice-textMuted">15%</div>
+                    <div class="w-[15%] text-center text-invoice-textMuted">—</div>
+                    <div class="w-[18%] text-right font-medium pr-1 sm:pr-2">${tax.toFixed(2)}</div>
+                </div>
+                ${interest > 0 ? `<div class="table-row-dark flex items-center px-4 sm:px-6 py-2.5 sm:py-3 text-[10px] sm:text-xs">
+                    <div class="w-[8%] text-center text-invoice-textMuted">05</div>
+                    <div class="w-[42%] sm:w-[45%] pl-2 sm:pl-4 font-medium text-gray-200">Interest Paid (Previous)</div>
+                    <div class="w-[17%] text-center text-invoice-textMuted">—</div>
+                    <div class="w-[15%] text-center text-invoice-textMuted">—</div>
+                    <div class="w-[18%] text-right font-medium text-red-400 pr-1 sm:pr-2">-${interest.toFixed(2)}</div>
+                </div>` : ''}
+            </div>
+        </div>
+
+        <div class="relative z-20 flex justify-between items-start w-full mb-12">
+            <div class="w-1/2 sm:w-[55%] pr-4 sm:pr-12 pt-4">
+                <h4 class="text-xs sm:text-sm font-semibold mb-1">Payment Confirmed</h4>
+                <p class="text-[8px] sm:text-[9px] text-invoice-textMuted leading-relaxed">
+                    This receipt confirms payment for electricity charges at ${buildingName}, House ${houseNumber} for ${monthName} ${payment.year || new Date().getFullYear()}. Tariff: Commercial @ ${ratePerKWh} ETB/kWh. Billing Period: ${billingDays} days.
+                </p>
+            </div>
+            <div class="w-[40%] sm:w-[42%] bg-[#212328] rounded-xl overflow-hidden text-[10px] sm:text-xs">
+                <div class="p-3 sm:p-4 space-y-2">
+                    <div class="flex justify-between"><span class="text-invoice-textMuted">Energy Charge</span><span>:</span><span class="font-medium">${energyCharge.toFixed(2)}</span></div>
+                    <div class="flex justify-between"><span class="text-invoice-textMuted">Service Charge</span><span>:</span><span class="font-medium">${serviceCharge.toFixed(2)}</span></div>
+                    <div class="flex justify-between"><span class="text-invoice-textMuted">Regulatory Fee</span><span>:</span><span class="font-medium">${regulatoryFee.toFixed(2)}</span></div>
+                    <div class="flex justify-between pb-2 border-b border-invoice-border"><span class="text-invoice-textMuted">VAT (15%)</span><span>:</span><span class="font-medium">${tax.toFixed(2)}</span></div>
+                </div>
+                <div class="bg-invoice-red px-3 sm:px-4 py-2.5 sm:py-3 flex justify-between font-bold text-xs sm:text-sm">
+                    <span>Total Paid</span><span>:</span><span>ETB ${totalAmount.toFixed(2)}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="relative z-20 border-t border-invoice-border pt-4 flex justify-between items-end w-full">
+            <div class="flex gap-4 sm:gap-6">
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded bg-[#212328] flex items-center justify-center border border-[#3d4047]">
+                        <i class="ph-fill ph-envelope text-white text-sm"></i>
+                    </div>
+                    <div class="text-[8px] sm:text-[9px] text-invoice-textMuted leading-tight"><p>${buildingName}</p><p>Electrical Payment System</p></div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-7 h-7 rounded bg-[#212328] flex items-center justify-center border border-[#3d4047]">
+                        <i class="ph-fill ph-phone text-white text-sm"></i>
+                    </div>
+                    <div class="text-[8px] sm:text-[9px] text-invoice-textMuted leading-tight"><p>${phone || '+251-XX-XXX-XXXX'}</p><p>Block 35</p></div>
+                </div>
+            </div>
+            <div class="text-center w-32 sm:w-40">
+                <div class="h-8 flex items-end justify-center mb-1 overflow-hidden relative opacity-70">
+                    <svg width="80" height="32" viewBox="0 0 100 40" fill="none" stroke="white" stroke-width="1.5" class="absolute bottom-0">
+                        <path d="M10 35 Q 20 10, 30 30 T 50 15 T 70 32 T 90 20" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div class="w-full h-[1px] bg-white mb-1"></div>
+                <p class="text-[8px] sm:text-[10px] text-invoice-textMuted">Authorised Sign</p>
+            </div>
+        </div>
+    </main>
+    <script>
+        function downloadReceipt() { window.print(); }
+    <\/script>
+</body>
+</html>`;
+}
+
+// ==================== OPEN RECEIPT VIEWER ====================
+function openReceiptViewer(paymentId) {
+    const payment = AppState.payments.find(p => p.id === paymentId);
+    if (!payment) return;
+    const bill = AppState.bills.find(b => b.id === payment.billId);
+    const resident = AppState.residents.find(r => r.id === payment.residentId);
+    
+    // Calculate EEP breakdown
+    let eepCalc = null;
+    if (bill && bill.wattsUsed > 0) {
+        eepCalc = calculateEEPBill(bill.wattsUsed);
+    }
+
+    const receiptHTML = generateReceiptHTML(payment, bill, resident, eepCalc, AppState.settings);
+    
+    // Open in new window for viewing/downloading
+    const win = window.open('', '_blank');
+    if (win) {
+        win.document.write(receiptHTML);
+        win.document.close();
+    } else {
+        // Fallback: show in modal
+        showToast('Please allow popups to view receipt', 'warning');
+    }
+}
+
+// ==================== SAVE RECEIPT TO DB ====================
+async function saveReceipt(payment, bill, resident) {
+    let eepCalc = null;
+    if (bill && bill.wattsUsed > 0) {
+        eepCalc = calculateEEPBill(bill.wattsUsed);
+    }
+    const receipt = {
+        id: Utils.generateId(),
+        paymentId: payment.id,
+        billId: bill?.id,
+        residentId: payment.residentId,
+        monthKey: payment.monthKey,
+        month: payment.month,
+        year: payment.year,
+        residentName: resident ? `${resident.firstName} ${resident.lastName}` : 'Unknown',
+        houseNumber: resident?.houseNumber || '—',
+        amount: eepCalc ? eepCalc.totalAmount : payment.amountPaid,
+        eepBreakdown: eepCalc,
+        payment: { amountPaid: payment.amountPaid, method: payment.method, date: payment.date, receipt: payment.receipt },
+        createdAt: Date.now()
+    };
+    await db.put('receipts', receipt);
+    return receipt;
 }
 
 // ==================== SHOW DRILL DOWN ====================
@@ -772,7 +1078,7 @@ async function renderBills() {
     const month = parseInt(document.getElementById('billMonth')?.value || AppState.currentMonth);
     const year = parseInt(document.getElementById('billYear')?.value || AppState.currentYear);
     const monthKey = Utils.getMonthKey(year, month);
-    const rate = parseFloat(AppState.settings.etbPerWatt || 0.15);
+    const rate = parseFloat(AppState.settings.etbPerWatt) || 6.4592;
 
     const el = (id) => document.getElementById(id);
     if (el('displayRate')) el('displayRate').textContent = rate;
@@ -812,7 +1118,7 @@ async function renderBills() {
         input.addEventListener('input', () => {
             const val = parseFloat(input.value) || 0;
             const etbEl = list.querySelector(`.watts-etb[data-resident-id="${input.dataset.residentId}"]`);
-            if (etbEl) etbEl.textContent = `${Utils.formatCurrency(val * rate)} ETB`;
+            if (etbEl) etbEl.textContent = `${Utils.formatCurrency(calculateEEPBill(val).totalAmount)} ETB`;
         });
     });
 }
@@ -869,7 +1175,10 @@ async function renderPayments() {
         if (item.status === 'pending' && item.bill) {
             actionBtn = `<button onclick="openPaymentModal('${r.id}', '${item.bill.id}')" class="btn-lime text-[10px] py-1 px-3">Record</button>`;
         } else if (item.status === 'paid') {
-            actionBtn = `<span class="text-[10px] text-emerald-400">${Utils.formatCurrency(item.payment.amountPaid)} ETB</span>`;
+            actionBtn = `<div class="flex items-center gap-1.5">
+                <span class="text-[10px] text-emerald-400">${Utils.formatCurrency(item.payment.amountPaid)} ETB</span>
+                <button onclick="openReceiptViewer('${item.payment.id}')" class="w-6 h-6 rounded flex items-center justify-center text-invoice-textMuted hover:text-invoice-red" style="background:var(--dark-700);" title="View Receipt"><i class="ph ph-receipt text-xs"></i></button>
+            </div>`;
         } else {
             actionBtn = `<span class="text-[10px] text-app-textDarker">—</span>`;
         }
@@ -977,7 +1286,7 @@ function renderSettings() {
     if (el('settingBuildingName')) el('settingBuildingName').value = s.buildingName || '';
     if (el('settingBuildingAddress')) el('settingBuildingAddress').value = s.buildingAddress || '';
     if (el('settingContactPhone')) el('settingContactPhone').value = s.contactPhone || '';
-    if (el('settingEtbPerWatt')) el('settingEtbPerWatt').value = s.etbPerWatt || 0.15;
+    if (el('settingEtbPerWatt')) el('settingEtbPerWatt').value = s.etbPerWatt || 6.4592;
     if (el('settingTotalFloors')) el('settingTotalFloors').value = s.totalFloors || 8;
     if (el('settingHousesPerFloor')) el('settingHousesPerFloor').value = s.housesPerFloor || 4;
     if (el('settingGroundHouses')) el('settingGroundHouses').value = s.groundHouses || 4;
@@ -1091,8 +1400,14 @@ function openPaymentModal(residentId, billId) {
     document.getElementById('payResidentName').textContent = `${r.firstName} ${r.lastName}`;
     document.getElementById('payHouseInfo').textContent = `🏠 ${r.houseNumber}`;
     document.getElementById('payBillId').value = billId;
-    document.getElementById('payAmountDue').value = bill.etbAmount;
-    document.getElementById('payAmountPaid').value = bill.etbAmount;
+    // Calculate EEP breakdown for display
+    let displayAmount = bill.etbAmount;
+    if (bill.wattsUsed > 0) {
+        const eepBreakdown = calculateEEPBill(bill.wattsUsed);
+        displayAmount = eepBreakdown.totalAmount;
+    }
+    document.getElementById('payAmountDue').value = displayAmount;
+    document.getElementById('payAmountPaid').value = displayAmount;
     document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
 
     const monthKeyParts = bill.monthKey.split('-');
@@ -1118,7 +1433,7 @@ function updateBatchDisplay() {
     if (!r) return;
     const month = parseInt(document.getElementById('batchMonth').value);
     const year = parseInt(document.getElementById('batchYear').value);
-    const rate = parseFloat(AppState.settings.etbPerWatt || 0.15);
+    const rate = parseFloat(AppState.settings.etbPerWatt) || 6.4592;
     const bill = AppState.bills.find(b => b.residentId === r.id && b.monthKey === Utils.getMonthKey(year, month));
 
     document.getElementById('batchHouseNum').textContent = r.houseNumber;
@@ -1135,7 +1450,7 @@ async function saveAllWatts() {
     const month = parseInt(document.getElementById('billMonth')?.value || AppState.currentMonth);
     const year = parseInt(document.getElementById('billYear')?.value || AppState.currentYear);
     const monthKey = Utils.getMonthKey(year, month);
-    const rate = parseFloat(AppState.settings.etbPerWatt || 0.15);
+    const rate = parseFloat(AppState.settings.etbPerWatt) || 6.4592;
 
     const inputs = document.querySelectorAll('.watts-input');
     let saved = 0;
@@ -1147,7 +1462,7 @@ async function saveAllWatts() {
         const existing = AppState.bills.find(b => b.residentId === residentId && b.monthKey === monthKey);
         const billData = {
             id: existing ? existing.id : Utils.generateId(),
-            residentId, monthKey, wattsUsed: watts, etbAmount: watts * rate,
+            residentId, monthKey, wattsUsed: watts, etbAmount: calculateEEPBill(watts).totalAmount,
             month, year, createdAt: existing ? existing.createdAt : Date.now(), updatedAt: Date.now()
         };
 
@@ -1233,9 +1548,13 @@ async function savePayment(e) {
 
     await db.put('payments', paymentData);
     AppState.payments = await db.getAll('payments');
+    
+    // Calculate EEP breakdown and save receipt
+    const payResident = AppState.residents.find(r => r.id === bill.residentId);
+    try { await saveReceipt(paymentData, bill, payResident); } catch(e) { console.error('Receipt save error:', e); }
+    
     showToast(t('toast_payment'), 'success');
-    const r = AppState.residents.find(r => r.id === bill.residentId);
-    await logActivity('Recorded payment', `${r?.firstName || ''} ${r?.lastName || ''} - ${Utils.formatCurrency(paymentData.amountPaid)} ETB`);
+    await logActivity('Recorded payment', `${payResident?.firstName || ''} ${payResident?.lastName || ''} - ${Utils.formatCurrency(paymentData.amountPaid)} ETB`);
     document.getElementById('paymentModal').classList.add('hidden');
     refreshPage(AppState.currentPage);
 }
@@ -1578,8 +1897,8 @@ function setupRateModal() {
     const editRateBtn = document.getElementById('editRateBtn');
     if (editRateBtn) {
         editRateBtn.addEventListener('click', () => {
-            document.getElementById('currentRateDisplay').textContent = AppState.settings.etbPerWatt || 0.15;
-            document.getElementById('rateInput').value = AppState.settings.etbPerWatt || 0.15;
+            document.getElementById('currentRateDisplay').textContent = AppState.settings.etbPerWatt || 6.4592;
+            document.getElementById('rateInput').value = AppState.settings.etbPerWatt || 6.4592;
             document.getElementById('rateModal').classList.remove('hidden');
         });
     }
@@ -1736,14 +2055,14 @@ function setupModals() {
         const month = parseInt(document.getElementById('batchMonth').value);
         const year = parseInt(document.getElementById('batchYear').value);
         const monthKey = Utils.getMonthKey(year, month);
-        const rate = parseFloat(AppState.settings.etbPerWatt || 0.15);
+        const rate = parseFloat(AppState.settings.etbPerWatt) || 6.4592;
         const watts = parseFloat(document.getElementById('batchWattsInput').value) || 0;
 
         if (watts > 0) {
             const existing = AppState.bills.find(b => b.residentId === r.id && b.monthKey === monthKey);
             await db.put('bills', {
                 id: existing ? existing.id : Utils.generateId(),
-                residentId: r.id, monthKey, wattsUsed: watts, etbAmount: watts * rate,
+                residentId: r.id, monthKey, wattsUsed: watts, etbAmount: calculateEEPBill(watts).totalAmount,
                 month, year, createdAt: existing ? existing.createdAt : Date.now(), updatedAt: Date.now()
             });
         }
@@ -1770,9 +2089,9 @@ function setupModals() {
 
     // Batch ETB calculation
     document.getElementById('batchWattsInput')?.addEventListener('input', () => {
-        const rate = parseFloat(AppState.settings.etbPerWatt || 0.15);
+        const rate = parseFloat(AppState.settings.etbPerWatt) || 6.4592;
         const watts = parseFloat(document.getElementById('batchWattsInput').value) || 0;
-        document.getElementById('batchEtbCalc').textContent = Utils.formatCurrency(watts * rate);
+        document.getElementById('batchEtbCalc').textContent = Utils.formatCurrency(calculateEEPBill(watts).totalAmount);
     });
 
     // Confirm dialog
@@ -1908,6 +2227,7 @@ async function init() {
         AppState.bills = await db.getAll('bills');
         AppState.payments = await db.getAll('payments');
         AppState.syncLog = await db.getAll('syncLog');
+        AppState.receipts = await db.getAll('receipts');
 
         // Setup (login/theme already done in DOMContentLoaded)
         // Only run event listener setup once to avoid duplicates
