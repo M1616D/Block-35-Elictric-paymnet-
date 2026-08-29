@@ -376,22 +376,18 @@ function getReportData(month, year) {
 // ==================== EEP TARIFF CALCULATION (Ethiopian Electric Power) ====================
 // Based on real EEP Commercial tariff: Energy + Service + Regulatory + Tax
 function calculateEEPBill(kWh, options = {}) {
-    const rate = options.rate || parseFloat(AppState.settings.etbPerWatt) || 6.4592; // ETB per kWh from admin Settings
-    const serviceChargeRate = options.serviceRate || 0.12366; // 12.366%
-    const regulatoryRate = options.regulatoryRate || 0.005; // 0.5%
-    const taxRate = options.taxRate || 0.15; // 15% VAT
+    const rate = options.rate || parseFloat(AppState.settings.etbPerWatt) || 6.4592;
+    const SERVICE_CHARGE_FIXED = 64.70; // Fixed service charge (ETB)
+    const regulatoryRate = 0.005; // 0.5% of subtotal
+    const taxRate = 0.15; // 15% VAT of subtotal
     const billingDays = options.billingDays || 30;
     const interestPaid = options.interestPaid || 0;
 
-    // Display values (rounded to 2 decimals)
     const energyCharge = Math.round(kWh * rate * 100) / 100;
-    const serviceCharge = Math.round(energyCharge * serviceChargeRate * 100) / 100;
-    // Raw values for regulatory/tax (use unrounded energy + service)
-    const rawSubtotal = kWh * rate + (kWh * rate * serviceChargeRate);
-    const regulatoryFee = Math.round(rawSubtotal * regulatoryRate * 100) / 100;
-    const tax = Math.round(rawSubtotal * taxRate * 100) / 100;
-    // Total = sum of all rounded line items
-    const subtotal = energyCharge + serviceCharge;
+    const serviceCharge = SERVICE_CHARGE_FIXED;
+    const subtotal = Math.round((energyCharge + serviceCharge) * 100) / 100;
+    const regulatoryFee = Math.round(subtotal * regulatoryRate * 100) / 100;
+    const tax = Math.round(subtotal * taxRate * 100) / 100;
     const totalAmount = Math.round((subtotal + regulatoryFee + tax - interestPaid) * 100) / 100;
 
     return {
@@ -401,7 +397,7 @@ function calculateEEPBill(kWh, options = {}) {
         billingDays,
         energyCharge,
         serviceCharge,
-        serviceChargeRate: serviceChargeRate * 100,
+        serviceChargeDisplay: 'Fixed',
         subtotal,
         regulatoryFee,
         regulatoryRate: regulatoryRate * 100,
@@ -539,8 +535,8 @@ function generateReceiptHTML(payment, bill, resident, eepCalc, settings) {
                 </div>
                 <div class="table-row-dark flex items-center px-4 sm:px-6 py-2.5 sm:py-3 text-[10px] sm:text-xs">
                     <div class="w-[8%] text-center text-invoice-textMuted">02</div>
-                    <div class="w-[42%] sm:w-[45%] pl-2 sm:pl-4 font-medium text-gray-200">Service Charge (12.366%)</div>
-                    <div class="w-[17%] text-center text-invoice-textMuted">12.366%</div>
+                    <div class="w-[42%] sm:w-[45%] pl-2 sm:pl-4 font-medium text-gray-200">Service Charge (Fixed)</div>
+                    <div class="w-[17%] text-center text-invoice-textMuted">Fixed</div>
                     <div class="w-[15%] text-center text-invoice-textMuted">—</div>
                     <div class="w-[18%] text-right font-medium pr-1 sm:pr-2">${serviceCharge.toFixed(2)}</div>
                 </div>
