@@ -1718,6 +1718,113 @@ async function savePayment(e) {
     refreshPage(AppState.currentPage);
 }
 
+
+// ==================== DETAIL MODAL ====================
+function openDetailModal(residentId, context) {
+    const r = AppState.residents.find(r => r.id === residentId);
+    if (!r) return;
+    
+    const month = AppState.currentMonth;
+    const year = AppState.currentYear;
+    const monthKey = Utils.getMonthKey(year, month);
+    const bill = AppState.bills.find(b => b.residentId === r.id && b.monthKey === monthKey);
+    const payment = bill ? AppState.payments.find(p => p.billId === bill.id && p.monthKey === monthKey) : null;
+    const punishment = AppState.punishments.find(p => p.residentId === r.id && p.monthKey === monthKey);
+    
+    const avatar = r.photo
+        ? `<img src="${r.photo}" class="w-16 h-16 rounded-2xl object-cover" alt="">`
+        : `<div class="w-16 h-16 rounded-2xl flex items-center justify-xl text-xl font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
+    
+    let etb = bill?.etbAmount || 0;
+    let eepCalc = null;
+    if (bill && bill.wattsUsed > 0 && r.houseType !== 'reader') {
+        eepCalc = calculateEEPBill(bill.wattsUsed);
+        etb = eepCalc.totalAmount;
+    } else if (r.houseType === 'reader') {
+        etb = parseFloat(AppState.settings.fixedAmount) || 0;
+    }
+    
+    const floorName = r.floor === 0 ? 'Ground' : `Floor ${r.floor}`;
+    const typeLabel = r.houseType === 'shared' ? 'Watt Counter' : 'Own Reader';
+    const statusColor = payment ? '#10B981' : (bill ? '#F97316' : '#6b7280');
+    const statusText = payment ? 'Paid' : (bill ? 'Pending' : 'No Bill');
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const monthName = monthNames[month - 1] || month;
+    
+    let billSection = '';
+    if (bill) {
+        billSection = `
+            <div class="detail-section">
+                <h4 class="detail-section-title">Bill - ${monthName} ${year}</h4>
+                <div class="detail-grid">
+                    <div class="detail-item"><span class="detail-label">Watts Used</span><span class="detail-value">${bill.wattsUsed} kWh</span></div>
+                    ${eepCalc ? `
+                    <div class="detail-item"><span class="detail-label">Energy Charge</span><span class="detail-value">${Utils.formatCurrency(eepCalc.energyCharge)} ETB</span></div>
+                    <div class="detail-item"><span class="detail-label">Service Charge</span><span class="detail-value">${Utils.formatCurrency(eepCalc.serviceCharge)} ETB</span></div>
+                    <div class="detail-item"><span class="detail-label">Regulatory Fee</span><span class="detail-value">${Utils.formatCurrency(eepCalc.regulatoryFee)} ETB</span></div>
+                    <div class="detail-item"><span class="detail-label">VAT (15%)</span><span class="detail-value">${Utils.formatCurrency(eepCalc.tax)} ETB</span></div>
+                    ` : ''}
+                    <div class="detail-item total"><span class="detail-label">Total Amount</span><span class="detail-value">${Utils.formatCurrency(etb)} ETB</span></div>
+                </div>
+            </div>`;
+    }
+    
+    let paymentSection = '';
+    if (payment) {
+        paymentSection = `
+            <div class="detail-section">
+                <h4 class="detail-section-title">Payment</h4>
+                <div class="detail-grid">
+                    <div class="detail-item"><span class="detail-label">Amount Paid</span><span class="detail-value" style="color:#10B981">${Utils.formatCurrency(payment.amountPaid)} ETB</span></div>
+                    <div class="detail-item"><span class="detail-label">Method</span><span class="detail-value">${payment.method || 'Cash'}</span></div>
+                    <div class="detail-item"><span class="detail-label">Date</span><span class="detail-value">${payment.date || '-'}</span></div>
+                </div>
+            </div>`;
+    }
+    
+    let punishSection = '';
+    if (punishment) {
+        punishSection = `
+            <div class="detail-section">
+                <h4 class="detail-section-title" style="color:#EF4444">Disconnection</h4>
+                <div class="detail-grid">
+                    <div class="detail-item"><span class="detail-label">Status</span><span class="detail-value" style="color:#EF4444">DISCONNECTED</span></div>
+                    <div class="detail-item"><span class="detail-label">Fine</span><span class="detail-value">${Utils.formatCurrency(punishment.reconnectionFee)} ETB</span></div>
+                    <div class="detail-item"><span class="detail-label">Reason</span><span class="detail-value">${punishment.reason || '-'}</span></div>
+                </div>
+            </div>`;
+    }
+    
+    const html = `
+        <div class="detail-header">
+            ${avatar}
+            <div>
+                <h3 class="detail-name">${r.firstName} ${r.lastName}</h3>
+                <span class="detail-status" style="background:${statusColor}20;color:${statusColor}">${statusText}</span>
+            </div>
+        </div>
+        <div class="detail-grid">
+            <div class="detail-item"><span class="detail-label">House</span><span class="detail-value">🏠 ${r.houseNumber}</span></div>
+            <div class="detail-item"><span class="detail-label">Floor</span><span class="detail-value">📍 ${floorName}</span></div>
+            <div class="detail-item"><span class="detail-label">Type</span><span class="detail-value">${r.houseType === 'reader' ? '📟' : '⚡'} ${typeLabel}</span></div>
+            ${r.roomType ? `<div class="detail-item"><span class="detail-label">Room</span><span class="detail-value">🛏 ${r.roomType.toUpperCase()}</span></div>` : ''}
+            ${r.phone ? `<div class="detail-item"><span class="detail-label">Phone</span><span class="detail-value">📱 ${r.phone}</span></div>` : ''}
+            ${r.members ? `<div class="detail-item"><span class="detail-label">Members</span><span class="detail-value">👥 ${r.members}</span></div>` : ''}
+            ${r.notes ? `<div class="detail-item full"><span class="detail-label">Notes</span><span class="detail-value">${r.notes}</span></div>` : ''}
+        </div>
+        ${billSection}
+        ${paymentSection}
+        ${punishSection}`;
+    
+    document.getElementById('detailContent').innerHTML = html;
+    document.getElementById('detailModal').classList.remove('hidden');
+}
+
+function closeDetailModal() {
+    document.getElementById('detailModal').classList.add('hidden');
+}
+
+
 // ==================== LOGIN & LOCK SCREEN ====================
 function showLogin() {
     document.getElementById('loginScreen').style.display = 'flex';

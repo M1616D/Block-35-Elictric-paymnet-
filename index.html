@@ -914,18 +914,26 @@
         }
     
 /* ===== WATTS CARD NEW DESIGN ===== */
-.watts-card { background: var(--dark-700); border-radius: 12px; padding: 12px 16px; border: 1px solid rgba(255,255,255,0.04); transition: all 0.2s; }
+.watts-card { background: var(--dark-700); border-radius: 14px; padding: 14px; border: 1px solid rgba(255,255,255,0.04); transition: all 0.2s; cursor: pointer; }
+.watts-card:active { transform: scale(0.99); }
 .watts-card:hover { border-color: rgba(181,246,84,0.2); }
 .watts-card-paid { border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.05); }
-.watts-card-top { display: flex; align-items: center; gap: 10px; }
+.watts-row1 { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.watts-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.watts-name-block { min-width: 0; }
+.watts-name { font-size: 13px; font-weight: 600; color: var(--app-textBase); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+.watts-sub { font-size: 10px; color: var(--app-textMuted); }
+.watts-row2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.watts-amount-block { display: flex; align-items: center; gap: 8px; }
+.watts-actions { display: flex; align-items: center; gap: 6px; }
 .watts-status-badge { font-size: 10px; padding: 3px 8px; border-radius: 6px; font-weight: 600; white-space: nowrap; }
 .watts-status-badge.paid { background: rgba(16,185,129,0.15); color: #10B981; }
 .watts-status-badge.pending { background: rgba(249,115,22,0.15); color: #F97316; }
 .watts-status-badge.none { background: rgba(255,255,255,0.06); color: #6b7280; }
-.watts-etb-display { font-size: 12px; font-weight: 700; color: var(--app-brand); min-width: 80px; text-align: right; }
-.watts-toggle-btn { background: var(--dark-900); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--app-textMuted); font-size: 12px; transition: all 0.2s; }
+.watts-etb-display { font-size: 12px; font-weight: 700; color: var(--app-brand); white-space: nowrap; }
+.watts-toggle-btn { background: var(--dark-900); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--app-textMuted); font-size: 12px; transition: all 0.2s; flex-shrink: 0; }
 .watts-toggle-btn:hover { color: var(--app-brand); border-color: var(--app-brand); }
-.watts-action-btn { border: none; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; }
+.watts-action-btn { border: none; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; flex-shrink: 0; }
 .pay-action-btn { display: flex; align-items: center; gap: 4px; background: var(--app-brand); color: #000; border-radius: 8px; padding: 6px 14px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
 .pay-action-btn:hover { transform: scale(1.05); box-shadow: 0 0 12px rgba(181,246,84,0.4); }
 .receipt-action-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: var(--dark-900); color: var(--app-textMuted); border: 1px solid rgba(255,255,255,0.06); cursor: pointer; transition: all 0.2s; }
@@ -960,14 +968,17 @@
 .rcn-btn.delete-btn:hover { color: #EF4444; background: rgba(239,68,68,0.1); }
 
 /* ===== PAYMENT CARD NEW DESIGN ===== */
-.payment-card-new { display: flex; align-items: flex-start; gap: 14px; padding: 14px 16px; background: var(--dark-700); border-radius: 14px; border: 1px solid rgba(255,255,255,0.04); transition: all 0.25s; }
+.payment-card-new { background: var(--dark-700); border-radius: 14px; padding: 14px; border: 1px solid rgba(255,255,255,0.04); transition: all 0.25s; cursor: pointer; }
+.payment-card-new:active { transform: scale(0.99); }
 .payment-card-new:hover { border-color: rgba(181,246,84,0.15); }
+.pcn-row1 { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
 .pcn-left { flex-shrink: 0; }
 .pcn-body { flex: 1; min-width: 0; }
-.pcn-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.pcn-top { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
 .pcn-name { font-size: 13px; font-weight: 600; color: var(--app-textBase); }
-.pcn-info { display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px; color: var(--app-textMuted); margin-bottom: 4px; }
-.pcn-amount { font-size: 13px; font-weight: 700; color: var(--app-brand); }
+.pcn-info { display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px; color: var(--app-textMuted); }
+.pcn-row2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.04); }
+.pcn-amount { font-size: 14px; font-weight: 700; color: var(--app-brand); }
 .pcn-action { flex-shrink: 0; display: flex; align-items: center; }
 
 /* ===== PUNISHMENT BUTTONS ===== */
@@ -978,6 +989,25 @@
 .punish-btn.reconnect:hover { background: #10B981; color: white; }
 
 
+        
+/* ===== DETAIL MODAL ===== */
+.detail-header { display: flex; align-items: center; gap: 14px; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.detail-name { font-size: 16px; font-weight: 700; color: var(--app-textBase); margin-bottom: 4px; }
+.detail-status { font-size: 10px; padding: 3px 10px; border-radius: 6px; font-weight: 600; display: inline-block; }
+.detail-section { margin-top: 14px; }
+.detail-section-title { font-size: 12px; font-weight: 700; color: var(--app-textMuted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.detail-item { padding: 8px 10px; background: var(--dark-900); border-radius: 8px; }
+.detail-item.full { grid-column: span 2; }
+.detail-item.total { grid-column: span 2; background: rgba(181,246,84,0.08); border: 1px solid rgba(181,246,84,0.15); }
+.detail-label { display: block; font-size: 9px; color: var(--app-textDarker); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px; }
+.detail-value { display: block; font-size: 12px; font-weight: 600; color: var(--app-textBase); }
+.detail-item.total .detail-value { font-size: 14px; color: var(--app-brand); }
+@media (max-width: 640px) {
+    .detail-grid { grid-template-columns: 1fr; }
+    .detail-item.full, .detail-item.total { grid-column: span 1; }
+    .detail-header img, .detail-header > div:first-child { width: 3rem !important; height: 3rem !important; }
+}
         /* ===== MOBILE RESPONSIVE FIXES ===== */
         @media (max-width: 640px) {
             /* Sidebar hidden on mobile */
@@ -997,17 +1027,25 @@
             
             /* Watts cards - full width, no overflow */
             .watts-card { padding: 10px !important; }
-            .watts-card-top { flex-wrap: wrap !important; gap: 8px !important; }
-            .watts-card-top > div:last-child { width: 100% !important; justify-content: space-between !important; }
+            .watts-row1 { margin-bottom: 8px !important; }
+            .watts-row2 { flex-wrap: wrap !important; }
+            .watts-amount-block { width: 100% !important; justify-content: space-between !important; }
+            .watts-name { max-width: 110px !important; font-size: 12px !important; }
+            .watts-sub { font-size: 9px !important; }
             .watts-input { width: 60px !important; font-size: 11px !important; }
             .watts-etb-display { font-size: 11px !important; }
-            .watts-toggle-btn { font-size: 14px !important; padding: 4px !important; }
+            .watts-toggle-btn { width: 26px !important; height: 26px !important; font-size: 12px !important; }
             .watts-breakdown { font-size: 10px !important; padding: 8px !important; }
+            .watts-actions { gap: 4px !important; }
             
             /* Payment cards - tighter on mobile */
-            .payment-card-new { padding: 10px 12px !important; gap: 10px !important; }
-            .pcn-left .w-11, .pcn-left .h-11 { width: 2.25rem !important; height: 2.25rem !important; }
-            .pcn-info { gap: 4px !important; font-size: 10px !important; }
+            .payment-card-new { padding: 10px !important; }
+            .pcn-row1 { gap: 8px !important; }
+            .pcn-left .w-11, .pcn-left .h-11 { width: 2.5rem !important; height: 2.5rem !important; }
+            .pcn-name { font-size: 12px !important; }
+            .pcn-info { gap: 4px !important; font-size: 9px !important; }
+            .pcn-row2 { flex-wrap: wrap !important; gap: 6px !important; }
+            .pcn-amount { font-size: 13px !important; }
             
             /* Modals - full width on phone */
             .modal-card { margin: 12px !important; padding: 16px !important; max-height: 90vh !important; }
@@ -1857,6 +1895,17 @@
     <div id="paymentModal" class="modal-overlay hidden z-[6000]">
         <div class="modal-card max-w-xs">
             <p class="text-xs text-app-textMuted text-center">Processing payment...</p>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detailModal" class="modal-overlay hidden z-[6000]">
+        <div class="modal-card max-w-sm w-[92vw] max-h-[85vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-bold text-app-textBase">Resident Details</h3>
+                <button onclick="closeDetailModal()" class="modal-close w-8 h-8 rounded-full flex items-center justify-center text-app-textMuted" style="box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); background:var(--app-darker);"><i class="ph ph-x"></i></button>
+            </div>
+            <div id="detailContent"></div>
         </div>
     </div>
 
