@@ -912,7 +912,72 @@
             border-radius: 99px;
             transition: width 0.3s ease;
         }
-    </style>
+    
+/* ===== WATTS CARD NEW DESIGN ===== */
+.watts-card { background: var(--dark-700); border-radius: 12px; padding: 12px 16px; border: 1px solid rgba(255,255,255,0.04); transition: all 0.2s; }
+.watts-card:hover { border-color: rgba(181,246,84,0.2); }
+.watts-card-paid { border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.05); }
+.watts-card-top { display: flex; align-items: center; gap: 10px; }
+.watts-status-badge { font-size: 10px; padding: 3px 8px; border-radius: 6px; font-weight: 600; white-space: nowrap; }
+.watts-status-badge.paid { background: rgba(16,185,129,0.15); color: #10B981; }
+.watts-status-badge.pending { background: rgba(249,115,22,0.15); color: #F97316; }
+.watts-status-badge.none { background: rgba(255,255,255,0.06); color: #6b7280; }
+.watts-etb-display { font-size: 12px; font-weight: 700; color: var(--app-brand); min-width: 80px; text-align: right; }
+.watts-toggle-btn { background: var(--dark-900); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--app-textMuted); font-size: 12px; transition: all 0.2s; }
+.watts-toggle-btn:hover { color: var(--app-brand); border-color: var(--app-brand); }
+.watts-action-btn { border: none; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; }
+.pay-action-btn { display: flex; align-items: center; gap: 4px; background: var(--app-brand); color: #000; border-radius: 8px; padding: 6px 14px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.pay-action-btn:hover { transform: scale(1.05); box-shadow: 0 0 12px rgba(181,246,84,0.4); }
+.receipt-action-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: var(--dark-900); color: var(--app-textMuted); border: 1px solid rgba(255,255,255,0.06); cursor: pointer; transition: all 0.2s; }
+.receipt-action-btn:hover { color: #e91e32; border-color: #e91e32; }
+.pay-btn { background: var(--app-brand); color: #000; font-size: 11px; padding: 6px 10px; }
+.pay-btn:hover { box-shadow: 0 0 12px rgba(181,246,84,0.4); }
+.paid-btn { background: var(--dark-900); color: var(--app-textMuted); font-size: 11px; padding: 6px 10px; }
+
+/* EEP Breakdown Dropdown */
+.watts-breakdown { margin-top: 10px; padding: 10px 14px; background: var(--dark-900); border-radius: 10px; border: 1px solid rgba(255,255,255,0.04); }
+.watts-breakdown.hidden { display: none; }
+.watts-breakdown-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 11px; color: var(--app-textMuted); border-bottom: 1px solid rgba(255,255,255,0.03); }
+.watts-breakdown-row:last-child { border-bottom: none; }
+.watts-breakdown-row.total { font-weight: 700; color: var(--app-brand); font-size: 12px; padding-top: 8px; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.08); }
+
+/* ===== RESIDENT CARD NEW DESIGN ===== */
+.resident-card-new { display: flex; align-items: flex-start; gap: 14px; padding: 16px; background: var(--dark-700); border-radius: 14px; border: 1px solid rgba(255,255,255,0.04); transition: all 0.25s; }
+.resident-card-new:hover { border-color: rgba(181,246,84,0.2); transform: translateY(-1px); }
+.rcn-left { flex-shrink: 0; }
+.rcn-body { flex: 1; min-width: 0; }
+.rcn-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.rcn-name { font-size: 14px; font-weight: 600; color: var(--app-textBase); }
+.rcn-details { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.rcn-tag { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.04); color: var(--app-textMuted); }
+.rcn-phone { font-size: 11px; color: var(--app-textMuted); }
+.rcn-members { font-size: 10px; color: var(--app-textDarker); margin-top: 2px; }
+.rcn-actions { display: flex; gap: 6px; flex-shrink: 0; margin-top: 4px; }
+.rcn-btn { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; transition: all 0.2s; }
+.rcn-btn.edit-btn { background: var(--dark-900); color: var(--app-textMuted); }
+.rcn-btn.edit-btn:hover { color: var(--app-brand); background: rgba(181,246,84,0.1); }
+.rcn-btn.delete-btn { background: var(--dark-900); color: var(--app-textMuted); }
+.rcn-btn.delete-btn:hover { color: #EF4444; background: rgba(239,68,68,0.1); }
+
+/* ===== PAYMENT CARD NEW DESIGN ===== */
+.payment-card-new { display: flex; align-items: flex-start; gap: 14px; padding: 14px 16px; background: var(--dark-700); border-radius: 14px; border: 1px solid rgba(255,255,255,0.04); transition: all 0.25s; }
+.payment-card-new:hover { border-color: rgba(181,246,84,0.15); }
+.pcn-left { flex-shrink: 0; }
+.pcn-body { flex: 1; min-width: 0; }
+.pcn-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.pcn-name { font-size: 13px; font-weight: 600; color: var(--app-textBase); }
+.pcn-info { display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px; color: var(--app-textMuted); margin-bottom: 4px; }
+.pcn-amount { font-size: 13px; font-weight: 700; color: var(--app-brand); }
+.pcn-action { flex-shrink: 0; display: flex; align-items: center; }
+
+/* ===== PUNISHMENT BUTTONS ===== */
+.punish-btn { display: flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: 8px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.punish-btn.disconnect { background: rgba(239,68,68,0.15); color: #EF4444; }
+.punish-btn.disconnect:hover { background: #EF4444; color: white; }
+.punish-btn.reconnect { background: rgba(16,185,129,0.15); color: #10B981; }
+.punish-btn.reconnect:hover { background: #10B981; color: white; }
+
+</style>
 </head>
 <body class="antialiased">
 
@@ -1068,6 +1133,10 @@
                     </nav>
                 </div>
                 <!-- Bottom: Settings -->
+                <a href="#" class="sidebar-link" data-page="punish">
+                    <i class="ph-fill ph-warning"></i>
+                    <span data-i18n="nav_punish">Punishment</span>
+                </a>
                 <a href="#" class="sidebar-link" data-page="settings">
                     <i class="ph-fill ph-gear-six"></i>
                     <span data-i18n="nav_settings">Settings</span>
@@ -1487,6 +1556,15 @@
                             <h3 class="text-sm font-bold text-app-textBase mb-3" data-i18n="sync_history">Sync History</h3>
                             <div id="syncLog" class="space-y-2 max-h-[300px] overflow-y-auto"></div>
                         </div>
+                    </section>
+
+                    <!-- ==================== PUNISHMENT / DISCONNECTION ==================== -->
+                    <section id="page-punish" class="page-section">
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-lg font-bold text-app-textBase">⚡ Punishment / Disconnection</h2>
+                        </div>
+                        <p class="text-xs text-app-textMuted mb-4">Manage disconnections for unpaid bills. Payment collection: 25th-30th. Grace period: 1st-3rd of next month. Cut after 3rd.</p>
+                        <div id="punishContent"></div>
                     </section>
 
                     <!-- ==================== SETTINGS ==================== -->

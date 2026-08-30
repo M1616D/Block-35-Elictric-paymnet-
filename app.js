@@ -62,6 +62,8 @@ const TRANSLATIONS = {
         confirm_clear_final: 'Final Warning', confirm_clear_final_msg: 'This cannot be undone. Proceed?',
         confirm_import_title: 'Import', confirm_import_msg: 'Merge imported data with existing?',
         confirm_title_default: 'Confirm',
+        filter_expiring: 'Expiring', filter_expired: 'Expired', filter_no_bill: 'Not Billed',
+        filter_expiring: 'Expiring', filter_expired: 'Expired', filter_no_bill: 'Not Billed',
     },
     am: {
         nav_dashboard: 'ዳሽቦርድ', nav_residents: 'ነጋዴዎች', nav_watts: 'ዋት መዝገብ',
@@ -119,6 +121,8 @@ const TRANSLATIONS = {
         confirm_clear_title: 'ሁሉንም ደምድ', confirm_clear_msg: 'ሁሉንም ነጋዴዎች ደምድ?',
         confirm_clear_final: 'የመጨረሻ ማስጠበቅ', confirm_clear_final_msg: 'ይህ የሚመለስ አይደለም። ይቀጥሉ?',
         confirm_import_title: 'ግባ', confirm_import_msg: 'የተቀበለ መረጃ ያስረካ?',
+        filter_expiring: 'በመጠባበቅ ላይ', filter_expired: 'ጊዜው ያለፈ', filter_no_bill: 'ቢል የለም',
+        filter_expiring: 'በመጠባበቅ ላይ', filter_expired: 'ጊዜው ያለፈ', filter_no_bill: 'ቢል የለም',
         confirm_title_default: 'አረጋግጥ',
     }
 };
@@ -170,7 +174,7 @@ function toggleTheme() { setTheme(currentTheme === 'dark' ? 'light' : 'dark'); }
 
 // ==================== DATABASE (IndexedDB) ====================
 const DB_NAME = 'CondoBillDB';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 class Database {
     constructor() { this.db = null; }
@@ -208,6 +212,16 @@ class Database {
                 if (!db.objectStoreNames.contains('activity')) {
                     const s = db.createObjectStore('activity', { keyPath: 'id' });
                     s.createIndex('timestamp', 'timestamp', { unique: false });
+                }
+                if (!db.objectStoreNames.contains('punishments')) {
+                    const s = db.createObjectStore('punishments', { keyPath: 'id' });
+                    s.createIndex('residentId', 'residentId', { unique: false });
+                    s.createIndex('monthKey', 'monthKey', { unique: false });
+                }
+                if (!db.objectStoreNames.contains('punishments')) {
+                    const s = db.createObjectStore('punishments', { keyPath: 'id' });
+                    s.createIndex('residentId', 'residentId', { unique: false });
+                    s.createIndex('monthKey', 'monthKey', { unique: false });
                 }
                 if (!db.objectStoreNames.contains('syncLog')) {
                     const s = db.createObjectStore('syncLog', { keyPath: 'id' });
@@ -252,11 +266,11 @@ class Database {
         return new Promise((r, j) => { const req = this.db.transaction(store, 'readwrite').objectStore(store).clear(); req.onsuccess = () => r(); req.onerror = (e) => j(e.target.error); });
     }
     async clearAll() {
-        for (const n of ['residents', 'bills', 'payments', 'activity', 'syncLog', 'receipts']) await this.clear(n);
+        for (const n of ['residents', 'bills', 'payments', 'activity', 'syncLog', 'receipts', 'punishments']) await this.clear(n);
     }
     async exportAll() {
         const data = {};
-        for (const n of ['residents', 'bills', 'payments', 'settings', 'activity', 'syncLog', 'receipts']) data[n] = await this.getAll(n);
+        for (const n of ['residents', 'bills', 'payments', 'settings', 'activity', 'syncLog', 'receipts', 'punishments']) data[n] = await this.getAll(n);
         return data;
     }
     async importAll(data) {
@@ -290,7 +304,7 @@ const AppState = {
     currentPage: 'dashboard',
     currentMonth: new Date().getMonth() + 1, currentYear: new Date().getFullYear(),
     residents: [], bills: [], payments: [], settings: {}, activity: [], syncLog: [], receipts: [],
-    batchIndex: 0, batchHouses: [],
+    batchIndex: 0, batchHouses: [], punishments: [], punishments: [],
     currentFilter: { floor: 'all', search: '', billFloor: 'all', payStatus: 'all', reportTab: 'overview' },
     lockTimeout: 5, lockTimer: null, lastActivity: Date.now(),
     credentials: { username: 'admin', password: 'admin123' }
@@ -745,7 +759,7 @@ function navigateTo(page) {
     const titles = {
         dashboard: t('nav_dashboard'), residents: t('nav_residents'), bills: t('nav_watts'),
         payments: t('nav_payments'), reports: t('nav_reports'), sync: t('nav_sync'),
-        settings: t('nav_settings'), cover: t('nav_cover')
+        settings: t('nav_settings'), cover: t('nav_cover'), punish: t('nav_punish')
     };
     document.getElementById('pageTitle').textContent = titles[page] || page;
     // Close mobile sidebar
@@ -765,6 +779,7 @@ function refreshPage(page) {
         case 'sync': renderSync(); break;
         case 'settings': renderSettings(); break;
         case 'cover': renderCover(); break;
+        case 'punish': renderPunish(); break;
     }
     updateRightPanelStats();
 }
@@ -1041,24 +1056,34 @@ async function renderResidents() {
                             '<span class="badge badge-none">No Bill</span>';
 
         const avatar = r.photo
-            ? `<img src="${r.photo}" class="w-10 h-10 rounded-full object-cover" alt="">`
-            : `<div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
+            ? `<img src="${r.photo}" class="w-12 h-12 rounded-xl object-cover" alt="">`
+            : `<div class="w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
 
-        const roomLabel = r.roomType ? ` · ${r.roomType.toUpperCase()}` : '';
-        const typeLabel = r.houseType === 'shared' ? ' · ⚡Watt' : r.houseType === 'reader' ? ' · 📟Reader' : '';
+        const roomLabel = r.roomType ? r.roomType.toUpperCase() : '';
+        const typeLabel = r.houseType === 'shared' ? '⚡Watt' : r.houseType === 'reader' ? '📟Reader' : '';
+        const floorName = r.floor === 0 ? 'Ground' : `${r.floor}${r.floor===1?'st':r.floor===2?'nd':r.floor===3?'rd':'th'}`;
 
-        return `<div class="resident-card">
-            ${avatar}
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                    <span class="text-sm font-semibold text-app-textBase truncate">${r.firstName} ${r.lastName}</span>
+        return `<div class="resident-card-new">
+            <div class="rcn-left">
+                ${avatar}
+            </div>
+            <div class="rcn-body">
+                <div class="rcn-top">
+                    <p class="rcn-name">${r.firstName} ${r.lastName}</p>
                     ${statusBadge}
                 </div>
-                <p class="text-[11px] text-app-textMuted">🏠 ${r.houseNumber}${roomLabel}${typeLabel} · 📱 ${r.phone || '—'}</p>
+                <div class="rcn-details">
+                    <span class="rcn-tag">🏠 ${r.houseNumber}</span>
+                    <span class="rcn-tag">📍 ${floorName}</span>
+                    ${roomLabel ? `<span class="rcn-tag">🛏 ${roomLabel}</span>` : ''}
+                    ${typeLabel ? `<span class="rcn-tag">${typeLabel}</span>` : ''}
+                </div>
+                ${r.phone ? `<p class="rcn-phone">📱 ${r.phone}</p>` : ''}
+                ${r.members > 1 ? `<p class="rcn-members">👥 ${r.members} members</p>` : ''}
             </div>
-            <div class="flex gap-1">
-                <button onclick="openEditResidentModal('${r.id}')" class="w-8 h-8 rounded-lg flex items-center justify-center text-app-textMuted hover:text-app-brand" style="background:var(--dark-700);"><i class="ph ph-pencil-simple text-sm"></i></button>
-                <button onclick="deleteResident('${r.id}')" class="w-8 h-8 rounded-lg flex items-center justify-center text-app-textMuted hover:text-red-400" style="background:var(--dark-700);"><i class="ph ph-trash text-sm"></i></button>
+            <div class="rcn-actions">
+                <button onclick="openEditResidentModal('${r.id}')" class="rcn-btn edit-btn" title="Edit"><i class="ph ph-pencil-simple"></i></button>
+                <button onclick="deleteResident('${r.id}')" class="rcn-btn delete-btn" title="Delete"><i class="ph ph-trash"></i></button>
             </div>
         </div>`;
     }).join('');
@@ -1068,6 +1093,7 @@ async function renderResidents() {
 async function renderBills() {
     AppState.residents = await db.getAll('residents');
     AppState.bills = await db.getAll('bills');
+    AppState.payments = await db.getAll('payments');
     const list = document.getElementById('wattsEntryList');
     if (!list) return;
 
@@ -1091,23 +1117,85 @@ async function renderBills() {
 
     list.innerHTML = filtered.map(r => {
         const bill = AppState.bills.find(b => b.residentId === r.id && b.monthKey === monthKey);
+        const payment = bill ? AppState.payments.find(p => p.billId === bill.id && p.monthKey === monthKey) : null;
         const watts = bill ? bill.wattsUsed : '';
-        // Own Reader pays fixed amount, Watt Counter pays by EEP calc
         const fixedAmt = parseFloat(AppState.settings.fixedAmount) || 0;
-        const etb = bill ? bill.etbAmount : (r.houseType === 'reader' && fixedAmt > 0 ? fixedAmt : 0);
+
+        // Calculate the correct ETB for display
+        let etb = 0;
+        let eepCalc = null;
+        if (r.houseType === 'reader') {
+            etb = fixedAmt;
+        } else if (watts > 0) {
+            eepCalc = calculateEEPBill(watts);
+            etb = eepCalc.totalAmount;
+        } else if (bill) {
+            // Recalculate from stored watts (may be from old calculation without fees)
+            if (bill.wattsUsed > 0 && r.houseType !== 'reader') {
+                eepCalc = calculateEEPBill(bill.wattsUsed);
+                etb = eepCalc.totalAmount;
+            } else {
+                etb = bill.etbAmount || 0;
+            }
+        }
 
         const avatar = r.photo
-            ? `<img src="${r.photo}" class="w-9 h-9 rounded-full object-cover" alt="">`
-            : `<div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
+            ? `<img src="${r.photo}" class="w-10 h-10 rounded-full object-cover" alt="">`
+            : `<div class="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
 
-        return `<div class="watts-card">
-            ${avatar}
-            <div class="flex-1 min-w-0">
-                <p class="text-xs font-semibold text-app-textBase truncate">${r.firstName} ${r.lastName}</p>
-                <p class="text-[10px] text-app-textMuted">${r.houseNumber}</p>
+        const roomLabel = r.roomType ? `· ${r.roomType.toUpperCase()}` : '';
+        const typeIcon = r.houseType === 'reader' ? '📟' : '⚡';
+
+        // Status badge
+        const isPaid = !!payment;
+        const statusBadge = isPaid
+            ? '<span class="watts-status-badge paid">✓ Paid</span>'
+            : (bill ? '<span class="watts-status-badge pending">⏳ Pending</span>' : '<span class="watts-status-badge none">—</span>');
+
+        // EEP breakdown dropdown (for watt counter only, when watts > 0)
+        let breakdownHTML = '';
+        if (eepCalc && watts > 0) {
+            breakdownHTML = `
+            <div class="watts-breakdown hidden" id="breakdown-${r.id}">
+                <div class="watts-breakdown-row"><span>Energy Charge</span><span>${eepCalc.kWh.toFixed(2)} kWh × ${rate}</span><span>${Utils.formatCurrency(eepCalc.energyCharge)} ETB</span></div>
+                <div class="watts-breakdown-row"><span>Service Charge</span><span>Fixed</span><span>${Utils.formatCurrency(eepCalc.serviceCharge)} ETB</span></div>
+                <div class="watts-breakdown-row"><span>Regulatory Fee (0.5%)</span><span>—</span><span>${Utils.formatCurrency(eepCalc.regulatoryFee)} ETB</span></div>
+                <div class="watts-breakdown-row"><span>VAT (15%)</span><span>—</span><span>${Utils.formatCurrency(eepCalc.tax)} ETB</span></div>
+                <div class="watts-breakdown-row total"><span>Total</span><span></span><span>${Utils.formatCurrency(eepCalc.totalAmount)} ETB</span></div>
+            </div>`;
+        } else if (r.houseType === 'reader' && fixedAmt > 0) {
+            breakdownHTML = `
+            <div class="watts-breakdown hidden" id="breakdown-${r.id}">
+                <div class="watts-breakdown-row total"><span>Own Reader Fixed Amount</span><span></span><span>${Utils.formatCurrency(fixedAmt)} ETB</span></div>
+            </div>`;
+        }
+
+        // Action button
+        let actionHTML = '';
+        if (isPaid) {
+            actionHTML = `<button onclick="openReceiptViewer('${payment.id}')" class="watts-action-btn paid-btn" title="View Receipt">📄</button>`;
+        } else if (bill) {
+            actionHTML = `<button onclick="openPaymentModal('${r.id}', '${bill.id}')" class="watts-action-btn pay-btn" title="Mark Paid">💰</button>`;
+        }
+
+        return `<div class="watts-card ${isPaid ? 'watts-card-paid' : ''}">
+            <div class="watts-card-top">
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                    ${avatar}
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-app-textBase truncate">${r.firstName} ${r.lastName}</p>
+                        <p class="text-[11px] text-app-textMuted">${typeIcon} ${r.houseNumber} ${roomLabel}</p>
+                    </div>
+                    ${statusBadge}
+                </div>
+                <div class="flex items-center gap-2">
+                    ${r.houseType !== 'reader' ? `<input type="number" class="dark-input text-xs w-20 text-center watts-input" data-resident-id="${r.id}" min="0" step="0.01" value="${watts}" placeholder="kWh">` : `<span class="text-[11px] text-app-textMuted px-2">Fixed</span>`}
+                    <span class="watts-etb-display" data-resident-id="${r.id}">${Utils.formatCurrency(etb)} ETB</span>
+                    ${eepCalc && watts > 0 ? `<button class="watts-toggle-btn" onclick="toggleBreakdown('${r.id}')" title="Show breakdown">▾</button>` : ''}
+                    ${actionHTML}
+                </div>
             </div>
-            <input type="number" class="dark-input text-xs w-20 text-center watts-input" data-resident-id="${r.id}" min="0" step="0.01" value="${watts}" placeholder="0">
-            <span class="text-[10px] font-bold text-emerald-400 min-w-[60px] text-right watts-etb" data-resident-id="${r.id}">${Utils.formatCurrency(etb)} ETB</span>
+            ${breakdownHTML}
         </div>`;
     }).join('');
 
@@ -1115,18 +1203,41 @@ async function renderBills() {
     list.querySelectorAll('.watts-input').forEach(input => {
         input.addEventListener('input', () => {
             const val = parseFloat(input.value) || 0;
-            const etbEl = list.querySelector(`.watts-etb[data-resident-id="${input.dataset.residentId}"]`);
+            const etbEl = list.querySelector(`.watts-etb-display[data-resident-id="${input.dataset.residentId}"]`);
+            const breakdownEl = document.getElementById('breakdown-' + input.dataset.residentId);
             if (!etbEl) return;
             const rid = input.dataset.residentId;
             const rr = AppState.residents.find(r => r.id === rid);
             if (rr && rr.houseType === 'reader') {
                 const fixed = parseFloat(AppState.settings.fixedAmount) || 0;
                 etbEl.textContent = `${Utils.formatCurrency(fixed)} ETB`;
+            } else if (val > 0) {
+                const calc = calculateEEPBill(val);
+                etbEl.textContent = `${Utils.formatCurrency(calc.totalAmount)} ETB`;
+                // Update breakdown
+                if (breakdownEl) {
+                    const rows = breakdownEl.querySelectorAll('.watts-breakdown-row');
+                    if (rows.length >= 5) {
+                        rows[0].querySelector('span:last-child').textContent = `${Utils.formatCurrency(calc.energyCharge)} ETB`;
+                        rows[1].querySelector('span:last-child').textContent = `${Utils.formatCurrency(calc.serviceCharge)} ETB`;
+                        rows[2].querySelector('span:last-child').textContent = `${Utils.formatCurrency(calc.regulatoryFee)} ETB`;
+                        rows[3].querySelector('span:last-child').textContent = `${Utils.formatCurrency(calc.tax)} ETB`;
+                        rows[4].querySelector('span:last-child').textContent = `${Utils.formatCurrency(calc.totalAmount)} ETB`;
+                    }
+                    breakdownEl.classList.remove('hidden');
+                }
             } else {
-                etbEl.textContent = `${Utils.formatCurrency(calculateEEPBill(val).totalAmount)} ETB`;
+                etbEl.textContent = `${Utils.formatCurrency(0)} ETB`;
+                if (breakdownEl) breakdownEl.classList.add('hidden');
             }
         });
     });
+}
+
+// Toggle EEP breakdown dropdown
+function toggleBreakdown(residentId) {
+    const el = document.getElementById('breakdown-' + residentId);
+    if (el) el.classList.toggle('hidden');
 }
 
 // ==================== RENDER PAYMENTS ====================
@@ -1169,36 +1280,59 @@ async function renderPayments() {
 
     list.innerHTML = items.map(item => {
         const r = item.resident;
-        const statusBadge = item.status === 'paid' ? '<span class="badge badge-paid">Paid</span>' :
-                            item.status === 'pending' ? '<span class="badge badge-pending">Pending</span>' :
+        const statusBadge = item.status === 'paid' ? '<span class="badge badge-paid">✓ Paid</span>' :
+                            item.status === 'pending' ? '<span class="badge badge-pending">⏳ Pending</span>' :
                             '<span class="badge badge-none">No Bill</span>';
 
         const avatar = r.photo
-            ? `<img src="${r.photo}" class="w-9 h-9 rounded-full object-cover" alt="">`
-            : `<div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
+            ? `<img src="${r.photo}" class="w-11 h-11 rounded-xl object-cover" alt="">`
+            : `<div class="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
+
+        // Calculate actual EEP total
+        let displayETB = item.bill?.etbAmount || 0;
+        if (item.bill && item.bill.wattsUsed > 0 && r.houseType !== 'reader') {
+            displayETB = calculateEEPBill(item.bill.wattsUsed).totalAmount;
+        }
 
         let actionBtn = '';
         if (item.status === 'pending' && item.bill) {
-            actionBtn = `<button onclick="openPaymentModal('${r.id}', '${item.bill.id}')" class="btn-lime text-[10px] py-1 px-3">Record</button>`;
+            actionBtn = `<button onclick="openPaymentModal('${r.id}', '${item.bill.id}')" class="pay-action-btn">
+                <i class="ph ph-currency-dollar"></i>
+                <span>Pay Now</span>
+            </button>`;
         } else if (item.status === 'paid') {
-            actionBtn = `<div class="flex items-center gap-1.5">
-                <span class="text-[10px] text-emerald-400">${Utils.formatCurrency(item.payment.amountPaid)} ETB</span>
-                <button onclick="openReceiptViewer('${item.payment.id}')" class="w-6 h-6 rounded flex items-center justify-center text-invoice-textMuted hover:text-invoice-red" style="background:var(--dark-700);" title="View Receipt"><i class="ph ph-receipt text-xs"></i></button>
+            actionBtn = `<div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-emerald-400">${Utils.formatCurrency(item.payment.amountPaid)} ETB</span>
+                <button onclick="openReceiptViewer('${item.payment.id}')" class="receipt-action-btn" title="View Receipt"><i class="ph ph-receipt"></i></button>
             </div>`;
         } else {
             actionBtn = `<span class="text-[10px] text-app-textDarker">—</span>`;
         }
 
-        return `<div class="resident-card">
-            ${avatar}
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                    <span class="text-xs font-semibold text-app-textBase truncate">${r.firstName} ${r.lastName}</span>
+        const floorName = r.floor === 0 ? 'G' : r.floor;
+        const roomLabel = r.roomType ? r.roomType.toUpperCase() : '';
+        const typeLabel = r.houseType === 'shared' ? '⚡Watt' : '📟Reader';
+
+        return `<div class="payment-card-new">
+            <div class="pcn-left">
+                ${avatar}
+            </div>
+            <div class="pcn-body">
+                <div class="pcn-top">
+                    <p class="pcn-name">${r.firstName} ${r.lastName}</p>
                     ${statusBadge}
                 </div>
-                <p class="text-[10px] text-app-textMuted">🏠 ${r.houseNumber} · ${item.bill ? `${Utils.formatCurrency(item.bill.etbAmount)} ETB` : 'No bill'}</p>
+                <div class="pcn-info">
+                    <span>🏠 ${r.houseNumber}</span>
+                    <span>📍 ${floorName}</span>
+                    <span>${typeLabel}</span>
+                    ${roomLabel ? `<span>🛏 ${roomLabel}</span>` : ''}
+                </div>
+                <p class="pcn-amount">${item.bill ? `${Utils.formatCurrency(displayETB)} ETB` : 'No bill'}</p>
             </div>
-            ${actionBtn}
+            <div class="pcn-action">
+                ${actionBtn}
+            </div>
         </div>`;
     }).join('');
 }
@@ -2210,6 +2344,149 @@ function setupDateSelects() {
     });
 }
 
+
+// ==================== RENDER PUNISHMENT / DISCONNECTION ====================
+async function renderPunish() {
+    AppState.residents = await db.getAll('residents');
+    AppState.bills = await db.getAll('bills');
+    AppState.payments = await db.getAll('payments');
+    AppState.punishments = await db.getAll('punishments');
+
+    const month = AppState.currentMonth;
+    const year = AppState.currentYear;
+    const monthKey = Utils.getMonthKey(year, month);
+    const day = new Date().getDate();
+
+    // Find unpaid residents (bills exist but no payment)
+    const unpaid = AppState.residents.filter(r => {
+        const bill = AppState.bills.find(b => b.residentId === r.id && b.monthKey === monthKey);
+        if (!bill) return false;
+        const payment = AppState.payments.find(p => p.billId === bill.id && p.monthKey === monthKey);
+        return !payment;
+    });
+
+    // Determine urgency
+    let urgency = 'normal'; // days 25-30: collection period
+    let urgencyMsg = 'Payment collection period (25th-30th)';
+    if (day >= 1 && day <= 3) {
+        urgency = 'warning'; // grace period
+        urgencyMsg = '⚠️ Grace period! Payment deadline passed. Electric can be cut after day 3.';
+    } else if (day > 3) {
+        urgency = 'danger'; // past deadline
+        urgencyMsg = '🔴 DISCONNECTION REQUIRED! Grace period over.';
+    }
+
+    // Existing punishments for this month
+    const monthPunishments = AppState.punishments.filter(p => p.monthKey === monthKey);
+
+    const content = document.getElementById('punishContent');
+    if (!content) return;
+
+    let html = `
+        <div class="glass-card mb-4" style="border-left: 4px solid ${urgency === 'danger' ? '#EF4444' : urgency === 'warning' ? '#F97316' : '#10B981'}">
+            <div class="flex items-center gap-3">
+                <div class="text-2xl">${urgency === 'danger' ? '🔴' : urgency === 'warning' ? '⚠️' : '🟢'}</div>
+                <div>
+                    <p class="text-sm font-bold text-app-textBase">${urgencyMsg}</p>
+                    <p class="text-xs text-app-textMuted">Ethiopian Calendar: Collection 25-30, Grace until 3rd, Cut after 3rd</p>
+                    <p class="text-xs text-app-textMuted">Current Day: ${day} | Month: ${Utils.getMonthName(month)} ${year}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card mb-4">
+            <h3 class="text-sm font-bold text-app-textBase mb-3">⚡ Disconnection Controls</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div class="p-3 rounded-xl text-center" style="background:var(--dark-700);">
+                    <p class="text-2xl font-bold text-red-400">${unpaid.length}</p>
+                    <p class="text-[10px] text-app-textMuted">Unpaid Houses</p>
+                </div>
+                <div class="p-3 rounded-xl text-center" style="background:var(--dark-700);">
+                    <p class="text-2xl font-bold text-orange-400">${monthPunishments.length}</p>
+                    <p class="text-[10px] text-app-textMuted">Disconnected</p>
+                </div>
+                <div class="p-3 rounded-xl text-center" style="background:var(--dark-700);">
+                    <p class="text-2xl font-bold text-emerald-400">${AppState.residents.length - unpaid.length}</p>
+                    <p class="text-[10px] text-app-textMuted">Active</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="glass-card">
+            <h3 class="text-sm font-bold text-app-textBase mb-3">Unpaid Residents</h3>`;
+
+    if (unpaid.length === 0) {
+        html += `<p class="text-xs text-app-textMuted text-center py-4">All houses paid! 🎉</p>`;
+    } else {
+        unpaid.forEach(r => {
+            const bill = AppState.bills.find(b => b.residentId === r.id && b.monthKey === monthKey);
+            const isDisconnected = monthPunishments.find(p => p.residentId === r.id);
+            const reconnectionFee = isDisconnected ? (isDisconnected.reconnectionFee || 0) : 0;
+            const avatar = r.photo
+                ? `<img src="${r.photo}" class="w-10 h-10 rounded-xl object-cover" alt="">`
+                : `<div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
+
+            // Calculate actual bill
+            let billAmount = bill?.etbAmount || 0;
+            if (bill && bill.wattsUsed > 0 && r.houseType !== 'reader') {
+                billAmount = calculateEEPBill(bill.wattsUsed).totalAmount;
+            }
+
+            html += `<div class="flex items-center gap-3 p-3 rounded-xl mb-2" style="background:var(--dark-700); ${isDisconnected ? 'border:1px solid #EF4444;' : ''}">
+                ${avatar}
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-app-textBase">${r.firstName} ${r.lastName}</p>
+                    <p class="text-[10px] text-app-textMuted">🏠 ${r.houseNumber} · ${Utils.formatCurrency(billAmount)} ETB</p>
+                    ${isDisconnected ? `<p class="text-[10px] text-red-400">⚡ DISCONNECTED · Fine: ${Utils.formatCurrency(reconnectionFee)} ETB</p>` : ''}
+                </div>
+                <div class="flex gap-2">
+                    ${!isDisconnected ? `<button onclick="punishResident('${r.id}', '${monthKey}', ${month}, ${year}, ${billAmount})" class="punish-btn disconnect">
+                        <i class="ph ph-lightning-slash"></i> Cut
+                    </button>` : `
+                    <button onclick="removePunishment('${r.id}', '${monthKey}')" class="punish-btn reconnect">
+                        <i class="ph ph-lightning"></i> Reconnect (${Utils.formatCurrency(reconnectionFee)} ETB)
+                    </button>`}
+                </div>
+            </div>`;
+        });
+    }
+
+    html += '</div>';
+    content.innerHTML = html;
+}
+
+async function punishResident(residentId, monthKey, month, year, billAmount) {
+    const reconnectionFee = prompt('Enter reconnection fine amount (ETB):', Math.round(billAmount * 0.5));
+    if (reconnectionFee === null) return;
+    const fee = parseFloat(reconnectionFee) || 0;
+
+    const punishment = {
+        id: Utils.generateId(),
+        residentId, monthKey, month, year,
+        reconnectionFee: fee,
+        disconnectedAt: Date.now(),
+        reason: 'Unpaid bill - electricity disconnected',
+        createdAt: Date.now()
+    };
+
+    await db.put('punishments', punishment);
+    AppState.punishments = await db.getAll('punishments');
+    showToast('Electricity disconnected. Fine set to ' + Utils.formatCurrency(fee) + ' ETB', 'warning');
+    await logActivity('Disconnected', `${residentId} - Fine: ${Utils.formatCurrency(fee)} ETB`);
+    renderPunish();
+}
+
+async function removePunishment(residentId, monthKey) {
+    const punishments = AppState.punishments.filter(p => p.residentId === residentId && p.monthKey === monthKey);
+    for (const p of punishments) {
+        await db.delete('punishments', p.id);
+    }
+    AppState.punishments = await db.getAll('punishments');
+    showToast('Electricity reconnected!', 'success');
+    await logActivity('Reconnected', `Resident ${residentId}`);
+    renderPunish();
+}
+
 // ==================== INIT ====================
 let _setupDone = false;
 async function init() {
@@ -2234,6 +2511,8 @@ async function init() {
         AppState.payments = await db.getAll('payments');
         AppState.syncLog = await db.getAll('syncLog');
         AppState.receipts = await db.getAll('receipts');
+        AppState.punishments = await db.getAll('punishments');
+        AppState.punishments = await db.getAll('punishments');
 
         // Setup (login/theme already done in DOMContentLoaded)
         // Only run event listener setup once to avoid duplicates
