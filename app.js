@@ -1175,7 +1175,7 @@ async function renderBills() {
         if (isPaid) {
             actionHTML = `<button onclick="openReceiptViewer('${payment.id}')" class="watts-action-btn paid-btn" title="View Receipt">📄</button>`;
         } else if (bill) {
-            actionHTML = `<button onclick="openPaymentModal('${r.id}', '${bill.id}')" class="watts-action-btn pay-btn" title="Mark Paid">💰</button>`;
+            actionHTML = `<button onclick="quickPayResident('${r.id}', '${bill.id}')" class="watts-action-btn pay-btn" title="Mark Paid">💰</button>`;
         }
 
         return `<div class="watts-card ${isPaid ? 'watts-card-paid' : ''}">
@@ -1296,7 +1296,7 @@ async function renderPayments() {
 
         let actionBtn = '';
         if (item.status === 'pending' && item.bill) {
-            actionBtn = `<button onclick="openPaymentModal('${r.id}', '${item.bill.id}')" class="pay-action-btn">
+            actionBtn = `<button onclick="quickPayResident('${r.id}', '${item.bill.id}')" class="pay-action-btn">
                 <i class="ph ph-currency-dollar"></i>
                 <span>Pay Now</span>
             </button>`;
@@ -1532,29 +1532,49 @@ async function deleteResident(id) {
 }
 
 // ==================== MODAL: RECORD PAYMENT ====================
-function openPaymentModal(residentId, billId) {
+async function quickPayResident(residentId, billId) {
     const r = AppState.residents.find(r => r.id === residentId);
     const bill = AppState.bills.find(b => b.id === billId);
     if (!r || !bill) return;
 
-    document.getElementById('payResidentName').textContent = `${r.firstName} ${r.lastName}`;
-    document.getElementById('payHouseInfo').textContent = `🏠 ${r.houseNumber}`;
-    document.getElementById('payBillId').value = billId;
-    // Calculate EEP breakdown for display
-    let displayAmount = bill.etbAmount;
+    // Calculate full EEP amount
+    let amountDue = bill.etbAmount;
     if (bill.wattsUsed > 0) {
-        const eepBreakdown = calculateEEPBill(bill.wattsUsed);
-        displayAmount = eepBreakdown.totalAmount;
+        amountDue = calculateEEPBill(bill.wattsUsed).totalAmount;
     }
-    document.getElementById('payAmountDue').value = displayAmount;
-    document.getElementById('payAmountPaid').value = displayAmount;
-    document.getElementById('payDate').value = new Date().toISOString().split('T')[0];
 
     const monthKeyParts = bill.monthKey.split('-');
-    document.getElementById('payMonth').value = parseInt(monthKeyParts[1]);
-    document.getElementById('payYear').value = parseInt(monthKeyParts[0]);
+    const month = parseInt(monthKeyParts[1]);
+    const year = parseInt(monthKeyParts[0]);
+    const today = new Date().toISOString().split('T')[0];
 
-    document.getElementById('paymentModal').classList.remove('hidden');
+    const paymentData = {
+        id: Utils.generateId(),
+        billId, residentId: r.id, monthKey: bill.monthKey, month, year,
+        amountPaid: amountDue,
+        amountDue: amountDue,
+        method: 'cash',
+        date: today,
+        receipt: '',
+        notes: 'Quick payment - marked paid',
+        createdAt: Date.now()
+    };
+
+    // Check if payment already exists for this bill
+    const existing = AppState.payments.find(p => p.billId === billId && p.monthKey === bill.monthKey);
+    if (existing) {
+        paymentData.id = existing.id;
+    }
+
+    await db.put('payments', paymentData);
+    AppState.payments = await db.getAll('payments');
+
+    // Save receipt
+    try { await saveReceipt(paymentData, bill, r); } catch(e) { console.error('Receipt error:', e); }
+
+    showToast(`${r.firstName} ${r.lastName} paid ${Utils.formatCurrency(amountDue)} ETB ✓`, 'success');
+    await logActivity('Quick Payment', `${r.firstName} ${r.lastName} - ${Utils.formatCurrency(amountDue)} ETB`);
+    refreshPage(AppState.currentPage);
 }
 
 // ==================== MODAL: BATCH WATTS ====================
@@ -2174,7 +2194,7 @@ function setupModals() {
 
     // Forms
     document.getElementById('residentForm')?.addEventListener('submit', saveResident);
-    document.getElementById('paymentForm')?.addEventListener('submit', savePayment);
+    // Payment form no longer needed - quickPay handles everything
 
     // Buttons
     document.getElementById('addResidentBtn')?.addEventListener('click', openAddResidentModal);
@@ -2455,24 +2475,44 @@ async function renderPunish() {
     content.innerHTML = html;
 }
 
-async function punishResident(residentId, monthKey, month, year, billAmount) {
-    const reconnectionFee = prompt('Enter reconnection fine amount (ETB):', Math.round(billAmount * 0.5));
-    if (reconnectionFee === null) return;
-    const fee = parseFloat(reconnectionFee) || 0;
+function punishResident(residentId, monthKey, month, year, billAmount) {
+    const r = AppState.residents.find(r => r.id === residentId);
+    const name = r ? `${r.firstName} ${r.lastName}` : 'Unknown';
+    const suggestedFine = Math.round(billAmount * 0.5);
+
+    document.getElementById('punishResidentId').value = residentId;
+    document.getElementById('punishMonthKey').value = monthKey;
+    document.getElementById('punishMonth').value = month;
+    document.getElementById('punishYear').value = year;
+    document.getElementById('punishName').textContent = name;
+    document.getElementById('punishHouse').textContent = r ? `🏠 ${r.houseNumber} · 📍 Floor ${r.floor}` : '';
+    document.getElementById('punishBillAmount').textContent = `${Utils.formatCurrency(billAmount)} ETB`;
+    document.getElementById('punishFeeInput').value = suggestedFine;
+    document.getElementById('punishModal').classList.remove('hidden');
+}
+
+async function confirmPunish() {
+    const residentId = document.getElementById('punishResidentId').value;
+    const monthKey = document.getElementById('punishMonthKey').value;
+    const month = parseInt(document.getElementById('punishMonth').value);
+    const year = parseInt(document.getElementById('punishYear').value);
+    const fee = parseFloat(document.getElementById('punishFeeInput').value) || 0;
+    const reason = document.getElementById('punishReasonInput').value.trim() || 'Unpaid bill - electricity disconnected';
 
     const punishment = {
         id: Utils.generateId(),
         residentId, monthKey, month, year,
         reconnectionFee: fee,
         disconnectedAt: Date.now(),
-        reason: 'Unpaid bill - electricity disconnected',
+        reason,
         createdAt: Date.now()
     };
 
     await db.put('punishments', punishment);
     AppState.punishments = await db.getAll('punishments');
-    showToast('Electricity disconnected. Fine set to ' + Utils.formatCurrency(fee) + ' ETB', 'warning');
+    showToast('Electricity disconnected ✓', 'warning');
     await logActivity('Disconnected', `${residentId} - Fine: ${Utils.formatCurrency(fee)} ETB`);
+    document.getElementById('punishModal').classList.add('hidden');
     renderPunish();
 }
 

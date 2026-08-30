@@ -977,7 +977,95 @@
 .punish-btn.reconnect { background: rgba(16,185,129,0.15); color: #10B981; }
 .punish-btn.reconnect:hover { background: #10B981; color: white; }
 
-</style>
+
+        /* ===== MOBILE RESPONSIVE FIXES ===== */
+        @media (max-width: 640px) {
+            /* Sidebar hidden on mobile */
+            .sidebar-left { display: none !important; }
+            .mobile-bottom-nav { display: flex !important; }
+            .hamburger-btn { display: flex !important; }
+            
+            /* Main content full width */
+            .main-wrapper { padding: 0 !important; padding-bottom: 70px !important; }
+            .page-section { padding: 12px !important; }
+            
+            /* Dashboard cards - 2 columns on mobile */
+            .dash-stat-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+            .dash-stat-card { padding: 12px !important; }
+            .dash-stat-card .text-2xl { font-size: 1.1rem !important; }
+            .dash-stat-card .text-[10px] { font-size: 9px !important; }
+            
+            /* Watts cards - full width, no overflow */
+            .watts-card { padding: 10px !important; }
+            .watts-card-top { flex-wrap: wrap !important; gap: 8px !important; }
+            .watts-card-top > div:last-child { width: 100% !important; justify-content: space-between !important; }
+            .watts-input { width: 60px !important; font-size: 11px !important; }
+            .watts-etb-display { font-size: 11px !important; }
+            .watts-toggle-btn { font-size: 14px !important; padding: 4px !important; }
+            .watts-breakdown { font-size: 10px !important; padding: 8px !important; }
+            
+            /* Payment cards - tighter on mobile */
+            .payment-card-new { padding: 10px 12px !important; gap: 10px !important; }
+            .pcn-left .w-11, .pcn-left .h-11 { width: 2.25rem !important; height: 2.25rem !important; }
+            .pcn-info { gap: 4px !important; font-size: 10px !important; }
+            
+            /* Modals - full width on phone */
+            .modal-card { margin: 12px !important; padding: 16px !important; max-height: 90vh !important; }
+            .modal-card.max-w-sm { max-width: 100% !important; }
+            .modal-card.max-w-md { max-width: 100% !important; }
+            
+            /* Report tabs */
+            .report-tabs { overflow-x: auto !important; gap: 4px !important; flex-wrap: nowrap !important; }
+            .report-tabs button { font-size: 10px !important; padding: 6px 10px !important; white-space: nowrap !important; }
+            
+            /* Resident cards */
+            .resident-card { padding: 12px !important; }
+            .resident-card .flex.items-center.gap-3 { gap: 8px !important; }
+            .resident-card .avatar { width: 2.5rem !important; height: 2.5rem !important; }
+            
+            /* Settings */
+            .settings-grid { grid-template-columns: 1fr !important; }
+            
+            /* Cover page */
+            .cover-card { padding: 10px !important; }
+            
+            /* Punish page */
+            .punish-card { padding: 10px !important; gap: 8px !important; }
+            .punish-card .flex.gap-2 { flex-wrap: wrap !important; }
+            
+            /* Dashboard gauge area */
+            .dash-gauge-row { flex-direction: column !important; gap: 8px !important; }
+            
+            /* Sync page */
+            .sync-card { padding: 12px !important; }
+            
+            /* Header */
+            .main-header { padding: 12px !important; gap: 8px !important; }
+            .main-header h1 { font-size: 1.1rem !important; }
+            
+            /* Filter chips */
+            .filter-chips { gap: 4px !important; flex-wrap: wrap !important; }
+            .filter-chip { font-size: 10px !important; padding: 4px 10px !important; }
+            
+            /* Tables - horizontal scroll */
+            .table-scroll { overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; }
+            .dark-table { min-width: 500px !important; font-size: 11px !important; }
+            .dark-table th, .dark-table td { padding: 6px 8px !important; font-size: 11px !important; }
+        }
+        
+        /* Tablet adjustments */
+        @media (min-width: 641px) and (max-width: 1024px) {
+            .dash-stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+            .page-section { padding: 16px !important; }
+        }
+        
+        /* Ensure bottom nav is hidden on desktop */
+        @media (min-width: 641px) {
+            .mobile-bottom-nav { display: none !important; }
+            .hamburger-btn { display: none !important; }
+            .sidebar-left { display: flex !important; }
+        }
+    </style>
 </head>
 <body class="antialiased">
 
@@ -1765,41 +1853,43 @@
     </div>
 
     <!-- Record Payment Modal -->
+    <!-- Payment Quick Confirm (hidden, not used but kept for backwards compat) -->
     <div id="paymentModal" class="modal-overlay hidden z-[6000]">
-        <div class="modal-card max-h-[85vh] overflow-y-auto">
+        <div class="modal-card max-w-xs">
+            <p class="text-xs text-app-textMuted text-center">Processing payment...</p>
+        </div>
+    </div>
+
+    <!-- Punishment/Disconnect Modal -->
+    <div id="punishModal" class="modal-overlay hidden z-[6000]">
+        <div class="modal-card max-w-sm w-[90vw]">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-base font-bold text-app-textBase" data-i18n="modal_record_payment">Record Payment</h3>
+                <h3 class="text-base font-bold text-red-400"><i class="ph ph-lightning-slash mr-1"></i> Disconnect Electricity</h3>
                 <button class="modal-close w-8 h-8 rounded-full flex items-center justify-center text-app-textMuted" style="box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); background:var(--app-darker);"><i class="ph ph-x"></i></button>
             </div>
-            <div class="p-3 rounded-xl text-center mb-4" style="background:var(--app-brand-dark)">
-                <h4 class="text-sm font-bold text-app-brand" id="payResidentName">-</h4>
-                <p class="text-[11px] text-app-textMuted" id="payHouseInfo">-</p>
+            <div class="p-3 rounded-xl text-center mb-4" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2);">
+                <h4 class="text-sm font-bold text-red-400" id="punishName">-</h4>
+                <p class="text-[11px] text-app-textMuted" id="punishHouse">-</p>
+                <p class="text-[11px] text-app-textDarker mt-1">Unpaid: <span class="text-app-textMuted font-semibold" id="punishBillAmount">-</span></p>
             </div>
-            <form id="paymentForm" class="space-y-3">
-                <input type="hidden" id="payBillId">
-                <div class="grid grid-cols-2 gap-3">
-                    <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium" data-i18n="label_month">Month</label><select id="payMonth" class="dark-select text-xs" required></select></div>
-                    <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium" data-i18n="label_year">Year</label><select id="payYear" class="dark-select text-xs" required></select></div>
+            <input type="hidden" id="punishResidentId">
+            <input type="hidden" id="punishMonthKey">
+            <input type="hidden" id="punishMonth">
+            <input type="hidden" id="punishYear">
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[11px] text-app-textMuted mb-1.5 font-medium">Reconnection Fine Amount (ETB)</label>
+                    <input type="number" id="punishFeeInput" class="dark-input text-xs w-full" min="0" step="1" placeholder="0">
                 </div>
-                <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium" data-i18n="label_amount_due">Amount Due</label><input type="number" id="payAmountDue" class="dark-input text-xs" readonly style="opacity:0.6"></div>
-                <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium" data-i18n="label_amount_paid">Amount Paid</label><input type="number" id="payAmountPaid" class="dark-input text-xs" step="0.01" min="0" required></div>
-                <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium" data-i18n="label_method">Method</label>
-                    <select id="payMethod" class="dark-select text-xs">
-                        <option value="cash" data-i18n="method_cash">Cash</option>
-                        <option value="bank_transfer" data-i18n="method_bank">Bank Transfer</option>
-                        <option value="mobile_money" data-i18n="method_mobile">Mobile Money</option>
-                        <option value="check" data-i18n="method_check">Check</option>
-                        <option value="other" data-i18n="method_other">Other</option>
-                    </select>
+                <div>
+                    <label class="block text-[11px] text-app-textMuted mb-1.5 font-medium">Reason</label>
+                    <textarea id="punishReasonInput" class="dark-input text-xs w-full" rows="2" placeholder="Unpaid bill - electricity disconnected"></textarea>
                 </div>
-                <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium" data-i18n="label_date">Date</label><input type="date" id="payDate" class="dark-input text-xs" required></div>
-                <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium" data-i18n="label_receipt">Receipt #</label><input type="text" id="payReceipt" class="dark-input text-xs"></div>
-                <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium" data-i18n="label_notes">Notes</label><textarea id="payNotes" class="dark-input text-xs" rows="2"></textarea></div>
-                <div class="flex gap-3 pt-2">
-                    <button type="button" class="btn-ghost flex-1 modal-close text-xs" data-i18n="btn_cancel">Cancel</button>
-                    <button type="submit" class="btn-brand flex-1 text-xs" data-i18n="btn_record_payment">Record Payment</button>
+                <div class="flex gap-3 pt-1">
+                    <button type="button" class="modal-close btn-ghost flex-1 text-xs">Cancel</button>
+                    <button onclick="confirmPunish()" class="flex-1 text-xs py-2.5 rounded-xl font-bold bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-all">⚡ Disconnect</button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
