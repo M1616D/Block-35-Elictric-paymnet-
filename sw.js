@@ -1,4 +1,4 @@
-const CACHE_NAME = 'condobill-v4';
+const CACHE_NAME = 'condobill-v5';
 const ASSETS = ['./', './index.html', './app.js', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -15,6 +15,8 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+    // Skip non-HTTP requests (chrome-extension://, etc.)
+    if (!e.request.url.startsWith('http')) return;
     const url = new URL(e.request.url);
     // Network-first for app files (bust cache)
     if (url.pathname.endsWith('.js') || url.pathname.endsWith('.html') || url.pathname.endsWith('.css') || url.search.includes('v=')) {
