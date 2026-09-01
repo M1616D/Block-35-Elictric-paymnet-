@@ -731,9 +731,9 @@ function showDrillDown(type) {
             const avatar = item.photo
                 ? `<img src="${item.photo}" class="w-8 h-8 rounded-full object-cover" alt="">`
                 : `<div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(item.name.split(' ')[0], item.name.split(' ')[1])}</div>`;
-            const badge = item.status === 'paid' ? '<span class="badge badge-paid">Paid</span>' :
-                          item.status === 'pending' ? '<span class="badge badge-pending">Pending</span>' :
-                          '<span class="badge badge-none">No Bill</span>';
+            const badge = item.status === 'paid' ? '<span class="pay-badge pay-badge-paid">Paid</span>' :
+                          item.status === 'pending' ? '<span class="pay-badge pay-badge-pending">Pending</span>' :
+                          '';
             html += `<div class="flex items-center gap-3 py-2 border-b" style="border-color:var(--app-border);">
                 ${ringAvatar}
                 <div class="flex-1 min-w-0"><p class="text-xs font-semibold text-app-textBase truncate">${item.name}</p><p class="text-[10px] text-app-textMuted">${item.house}</p></div>
@@ -1051,9 +1051,9 @@ async function renderResidents() {
         const monthKey = Utils.getMonthKey(AppState.currentYear, AppState.currentMonth);
         const bill = AppState.bills.find(b => b.residentId === r.id && b.monthKey === monthKey);
         const payment = bill ? AppState.payments.find(p => p.billId === bill.id && p.monthKey === monthKey) : null;
-        const statusBadge = payment ? '<span class="badge badge-paid">Paid</span>' :
-                            bill ? '<span class="badge badge-pending">Pending</span>' :
-                            '<span class="badge badge-none">No Bill</span>';
+        const statusBadge = payment ? '<span class="res-badge res-badge-paid"><i class="ph ph-check"></i> PAID</span>' :
+                            bill ? '<span class="res-badge res-badge-pending"><i class="ph ph-clock"></i> PENDING</span>' :
+                            '';
 
         const ringAvatar = r.photo
             ? `<div class="ring-avatar"><div class="ring-border"></div><img src="${r.photo}" alt=""></div>`
@@ -1063,27 +1063,27 @@ async function renderResidents() {
         const typeLabel = r.houseType === 'shared' ? '⚡Watt' : r.houseType === 'reader' ? '📟Reader' : '';
         const floorName = r.floor === 0 ? 'Ground' : `${r.floor}${r.floor===1?'st':r.floor===2?'nd':r.floor===3?'rd':'th'}`;
 
-        return `<div class="resident-card-new">
-            <div class="rcn-left">
-                ${ringAvatar}
-            </div>
-            <div class="rcn-body">
-                <div class="rcn-top">
-                    <p class="rcn-name">${r.firstName} ${r.lastName}</p>
-                    ${statusBadge}
+        return `<div class="res-card" onclick="event.stopPropagation(); openDetailModal('${r.id}')">
+            <div class="res-card-top">
+                <div class="res-card-left">
+                    ${ringAvatar}
+                    <div class="res-card-info">
+                        <div class="res-card-name-row">
+                            <p class="res-card-name">${r.firstName} ${r.lastName}</p>
+                            ${statusBadge ? statusBadge.replace('badge-paid', 'res-badge-paid').replace('badge-pending', 'res-badge-pending').replace('badge-none', 'res-badge-none') : ''}
+                        </div>
+                    </div>
                 </div>
-                <div class="rcn-details">
-                    <span class="rcn-tag">🏠 ${r.houseNumber}</span>
-                    <span class="rcn-tag">📍 ${floorName}</span>
-                    ${roomLabel ? `<span class="rcn-tag">🛏 ${roomLabel}</span>` : ''}
-                    ${typeLabel ? `<span class="rcn-tag">${typeLabel}</span>` : ''}
+                <div class="res-card-actions">
+                    <button onclick="event.stopPropagation(); openEditResidentModal('${r.id}')" class="res-action-btn" title="Edit"><i class="ph ph-pencil-simple"></i></button>
+                    <button onclick="event.stopPropagation(); deleteResident('${r.id}')" class="res-action-btn res-action-delete" title="Delete"><i class="ph ph-trash"></i></button>
                 </div>
-                ${r.phone ? `<p class="rcn-phone">📱 ${r.phone}</p>` : ''}
-                ${r.members > 1 ? `<p class="rcn-members">👥 ${r.members} members</p>` : ''}
             </div>
-            <div class="rcn-actions">
-                <button onclick="openEditResidentModal('${r.id}')" class="rcn-btn edit-btn" title="Edit"><i class="ph ph-pencil-simple"></i></button>
-                <button onclick="deleteResident('${r.id}')" class="rcn-btn delete-btn" title="Delete"><i class="ph ph-trash"></i></button>
+            <div class="res-card-tags">
+                <span class="res-tag"><i class="ph-fill ph-house text-orange-400"></i> ${r.houseNumber}</span>
+                <span class="res-tag"><i class="ph-fill ph-map-pin text-pink-500"></i> ${floorName}</span>
+                ${roomLabel ? '<span class="res-tag"><i class="ph-fill ph-bed text-blue-400"></i> ' + roomLabel + '</span>' : ''}
+                ${typeLabel ? '<span class="res-tag"><i class="ph-fill ph-lightning text-orange-500"></i> ' + typeLabel + '</span>' : ''}
             </div>
         </div>`;
     }).join('');
@@ -1139,16 +1139,19 @@ async function renderBills() {
             }
         }
 
-        // ringAvatar already defined above
+        const ringAvatar = r.photo
+            ? `<div class="ring-avatar"><div class="ring-border"></div><img src="${r.photo}" alt=""></div>`
+            : `<div class="ring-avatar"><div class="ring-border"></div><div class="ring-inner">${Utils.getInitials(r.firstName, r.lastName)}</div></div>`;
 
+        // ringAvatar ready for use
         const roomLabel = r.roomType ? `· ${r.roomType.toUpperCase()}` : '';
         const typeIcon = r.houseType === 'reader' ? '📟' : '⚡';
 
         // Status badge
         const isPaid = !!payment;
         const statusBadge = isPaid
-            ? '<span class="watts-status-badge paid">✓ Paid</span>'
-            : (bill ? '<span class="watts-status-badge pending">⏳ Pending</span>' : '<span class="watts-status-badge none">—</span>');
+            ? '<span class="wc-badge wc-badge-paid"><i class="ph ph-check"></i> Paid</span>'
+            : (bill ? '<span class="wc-badge wc-badge-pending"><i class="ph ph-clock"></i> ⏳ Pending</span>' : '<span class="wc-badge" style="display:none">—</span>');
 
         // EEP breakdown dropdown (for watt counter only, when watts > 0)
         let breakdownHTML = '';
@@ -1171,29 +1174,26 @@ async function renderBills() {
         // Action button
         let actionHTML = '';
         if (isPaid) {
-            actionHTML = `<button onclick="event.stopPropagation(); openReceiptViewer('${payment.id}')" class="watts-action-btn paid-btn" title="View Receipt">📄</button>`;
+            actionHTML = '<button onclick="event.stopPropagation(); openReceiptViewer(\'' + payment.id + '\')" class="wc-icon-btn" title="View Receipt"><i class="ph ph-receipt"></i></button>'`;
         } else if (bill) {
-            actionHTML = `<button onclick="event.stopPropagation(); quickPayResident('${r.id}', '${bill.id}')" class="watts-action-btn pay-btn" title="Mark Paid">💰 Pay</button>`;
+            actionHTML = '<button onclick="event.stopPropagation(); quickPayResident(\'' + r.id + '\', \'' + bill.id + '\')" class="wc-pay-btn" title="Mark Paid"><i class="ph ph-check"></i> Pay</button>`;
         }
 
-        return `<div class="watts-card ${isPaid ? 'watts-card-paid' : ''}" onclick="event.stopPropagation(); openDetailModal('${r.id}')">
-            <div class="wc-top">
-                <div class="wc-info">
-                    ${ringAvatar}
-                    <div class="wc-text">
-                        <p class="wc-name">${r.firstName} ${r.lastName}</p>
-                        <p class="wc-sub">${typeIcon} ${r.houseNumber}${roomLabel ? ' · ' + roomLabel : ''}</p>
-                    </div>
+        return `<div class="wc-card" onclick="event.stopPropagation(); openDetailModal('${r.id}')">
+            <div class="wc-card-left">
+                ${wAvatar}
+                <div class="wc-card-info">
+                    <p class="wc-card-name">${r.firstName} ${r.lastName}</p>
+                    ${statusBadge}
                 </div>
-                ${statusBadge}
             </div>
-            <div class="wc-bottom">
-                <div class="wc-amount">
-                    ${r.houseType !== 'reader' ? `<input type="number" class="dark-input text-xs watts-input" data-resident-id="${r.id}" min="0" step="0.01" value="${watts}" placeholder="kWh" onclick="event.stopPropagation()">` : `<span class="text-[10px] text-app-textMuted">Fixed</span>`}
-                    <span class="watts-etb-display" data-resident-id="${r.id}">${Utils.formatCurrency(etb)} ETB</span>
+            <div class="wc-card-right">
+                <div class="wc-card-row1">
+                    ${r.houseType !== 'reader' ? '<input type="number" class="wc-kwh-input" data-resident-id="' + r.id + '" min="0" step="0.01" value="' + watts + '" placeholder="kWh" onclick="event.stopPropagation()">' : '<span class="text-[10px] text-app-textMuted">Fixed</span>'}
+                    <span class="wc-card-etb" data-resident-id="${r.id}">${Utils.formatCurrency(etb)} ETB</span>
                 </div>
-                <div class="wc-btns">
-                    ${eepCalc && watts > 0 ? `<button class="watts-toggle-btn" onclick="event.stopPropagation(); toggleBreakdown('${r.id}')" title="Show breakdown">▾</button>` : ''}
+                <div class="wc-card-row2">
+                    ${eepCalc && watts > 0 ? '<button class="wc-icon-btn" onclick="event.stopPropagation(); toggleBreakdown(\'' + r.id + '\')" title="Show breakdown"><i class="ph ph-caret-down"></i></button>' : ''}
                     ${actionHTML}
                 </div>
             </div>
@@ -1282,9 +1282,9 @@ async function renderPayments() {
 
     list.innerHTML = items.map(item => {
         const r = item.resident;
-        const statusBadge = item.status === 'paid' ? '<span class="badge badge-paid">✓ Paid</span>' :
-                            item.status === 'pending' ? '<span class="badge badge-pending">⏳ Pending</span>' :
-                            '<span class="badge badge-none">No Bill</span>';
+        const statusBadge = item.status === 'paid' ? '<span class="pay-badge pay-badge-paid">✓ Paid</span>' :
+                            item.status === 'pending' ? '<span class="pay-badge pay-badge-pending">⏳ Pending</span>' :
+                            '';
 
         const ringAvatar = r.photo
             ? `<div class="ring-avatar"><div class="ring-border"></div><img src="${r.photo}" alt=""></div>`
@@ -1298,41 +1298,36 @@ async function renderPayments() {
 
         let actionBtn = '';
         if (item.status === 'pending' && item.bill) {
-            actionBtn = `<button onclick="event.stopPropagation(); quickPayResident('${r.id}', '${item.bill.id}')" class="pay-action-btn">
-                <i class="ph ph-currency-dollar"></i>
-                <span>Pay Now</span>
-            </button>`;
+            actionBtn = '<button onclick="event.stopPropagation(); quickPayResident(\'' + r.id + '\', \'' + item.bill.id + '\')" class="pay-action-btn"><i class="ph ph-check"></i> Pay</button>';
         } else if (item.status === 'paid') {
-            actionBtn = `<div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-emerald-400">${Utils.formatCurrency(item.payment.amountPaid)} ETB</span>
-                <button onclick="event.stopPropagation(); openReceiptViewer('${item.payment.id}')" class="receipt-action-btn" title="View Receipt"><i class="ph ph-receipt"></i></button>
-            </div>`;
+            actionBtn = '<button onclick="event.stopPropagation(); openReceiptViewer(\'' + item.payment.id + '\')" class="pay-receipt-btn" title="View Receipt"><i class="ph ph-receipt"></i></button>';
         } else {
-            actionBtn = `<span class="text-[10px] text-app-textDarker">—</span>`;
+            actionBtn = '';
         }
 
         const floorName = r.floor === 0 ? 'G' : r.floor;
         const roomLabel = r.roomType ? r.roomType.toUpperCase() : '';
         const typeLabel = r.houseType === 'shared' ? '⚡Watt' : '📟Reader';
 
-                return `<div class="payment-card-new">
-            <div class="pc-top">
-                <div class="pc-left">${ringAvatar}</div>
-                <div class="pc-body">
-                    <div class="pc-head">
-                        <span class="pc-name">${r.firstName} ${r.lastName}</span>
+                return `<div class="pay-card" onclick="event.stopPropagation(); openDetailModal('${r.id}')">
+            <div class="pay-card-left">
+                ${ringAvatar}
+                <div class="pay-card-info">
+                    <div class="pay-card-name-row">
+                        <span class="pay-card-name">${r.firstName} ${r.lastName}</span>
                         ${statusBadge}
-                    </div>
-                    <div class="pc-tags">
-                        <span class="pc-tag">${typeLabel} ${r.houseNumber}</span>
-                        <span class="pc-tag">ð ${floorName}</span>
-                        ${roomLabel ? `<span class="pc-tag">ð¼ ${roomLabel}</span>` : ''}
                     </div>
                 </div>
             </div>
-            <div class="pc-bottom">
-                <span class="pc-amount">${item.bill ? `${Utils.formatCurrency(displayETB)} ETB` : 'No bill'}</span>
-                <div class="pc-action">${actionBtn}</div>
+            <div class="pay-card-right">
+                <div class="pay-card-tags">
+                    <span class="pay-tag"><i class="ph-fill ph-lightning text-orange-500"></i> ${typeLabel} ${r.houseNumber}</span>
+                    <span class="pay-tag"><b class="text-white">${floorName}</b> ${roomLabel}</span>
+                </div>
+                <div class="pay-card-bottom">
+                    <span class="pay-card-etb">${item.bill ? Utils.formatCurrency(displayETB) + ' ETB' : 'No bill'}</span>
+                    <div class="pay-card-action">${actionBtn}</div>
+                </div>
             </div>
         </div>`;
     }).join('');
