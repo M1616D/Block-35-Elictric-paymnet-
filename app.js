@@ -1179,18 +1179,22 @@ async function renderBills() {
         }
 
         return `<div class="watts-card ${isPaid ? 'watts-card-paid' : ''}">
-            <div class="watts-card-top">
-                <div class="flex items-center gap-3 flex-1 min-w-0">
+            <div class="wc-top">
+                <div class="wc-info">
                     ${avatar}
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold text-app-textBase truncate">${r.firstName} ${r.lastName}</p>
-                        <p class="text-[11px] text-app-textMuted">${typeIcon} ${r.houseNumber} ${roomLabel}</p>
+                    <div class="wc-text">
+                        <p class="wc-name">${r.firstName} ${r.lastName}</p>
+                        <p class="wc-sub">${typeIcon} ${r.houseNumber} ${roomLabel}</p>
                     </div>
-                    ${statusBadge}
                 </div>
-                <div class="flex items-center gap-2">
-                    ${r.houseType !== 'reader' ? `<input type="number" class="dark-input text-xs w-20 text-center watts-input" data-resident-id="${r.id}" min="0" step="0.01" value="${watts}" placeholder="kWh">` : `<span class="text-[11px] text-app-textMuted px-2">Fixed</span>`}
+                ${statusBadge}
+            </div>
+            <div class="wc-bottom">
+                <div class="wc-amount">
+                    ${r.houseType !== 'reader' ? `<input type="number" class="dark-input text-xs watts-input" data-resident-id="${r.id}" min="0" step="0.01" value="${watts}" placeholder="kWh">` : `<span class="text-[10px] text-app-textMuted">Fixed</span>`}
                     <span class="watts-etb-display" data-resident-id="${r.id}">${Utils.formatCurrency(etb)} ETB</span>
+                </div>
+                <div class="wc-btns">
                     ${eepCalc && watts > 0 ? `<button class="watts-toggle-btn" onclick="toggleBreakdown('${r.id}')" title="Show breakdown">▾</button>` : ''}
                     ${actionHTML}
                 </div>
@@ -1313,25 +1317,24 @@ async function renderPayments() {
         const roomLabel = r.roomType ? r.roomType.toUpperCase() : '';
         const typeLabel = r.houseType === 'shared' ? '⚡Watt' : '📟Reader';
 
-        return `<div class="payment-card-new">
-            <div class="pcn-left">
-                ${avatar}
-            </div>
-            <div class="pcn-body">
-                <div class="pcn-top">
-                    <p class="pcn-name">${r.firstName} ${r.lastName}</p>
-                    ${statusBadge}
+                return `<div class="payment-card-new">
+            <div class="pc-top">
+                <div class="pc-left">${avatar}</div>
+                <div class="pc-body">
+                    <div class="pc-head">
+                        <span class="pc-name">${r.firstName} ${r.lastName}</span>
+                        ${statusBadge}
+                    </div>
+                    <div class="pc-tags">
+                        <span class="pc-tag">${typeLabel} ${r.houseNumber}</span>
+                        <span class="pc-tag">ð ${floorName}</span>
+                        ${roomLabel ? `<span class="pc-tag">ð¼ ${roomLabel}</span>` : ''}
+                    </div>
                 </div>
-                <div class="pcn-info">
-                    <span>🏠 ${r.houseNumber}</span>
-                    <span>📍 ${floorName}</span>
-                    <span>${typeLabel}</span>
-                    ${roomLabel ? `<span>🛏 ${roomLabel}</span>` : ''}
-                </div>
-                <p class="pcn-amount">${item.bill ? `${Utils.formatCurrency(displayETB)} ETB` : 'No bill'}</p>
             </div>
-            <div class="pcn-action">
-                ${actionBtn}
+            <div class="pc-bottom">
+                <span class="pc-amount">${item.bill ? `${Utils.formatCurrency(displayETB)} ETB` : 'No bill'}</span>
+                <div class="pc-action">${actionBtn}</div>
             </div>
         </div>`;
     }).join('');
@@ -2634,6 +2637,17 @@ async function removePunishment(residentId, monthKey) {
     renderPunish();
 }
 
+// Auto-close modals on overlay click
+function setupModalCloseHandlers() {
+    document.querySelectorAll(".modal-overlay").forEach(overlay => {
+        overlay.addEventListener("click", (e) => {
+            if (e.target === overlay) {
+                overlay.classList.add("hidden");
+            }
+        });
+    });
+}
+
 // ==================== INIT ====================
 let _setupDone = false;
 async function init() {
@@ -2681,7 +2695,8 @@ async function init() {
         // Navigate to dashboard
         navigateTo('dashboard');
         resetLockTimer();
-        _setupDone = true;
+        setupModalCloseHandlers();
+    _setupDone = true;
     } catch (err) {
         console.error('Init error:', err);
         showToast(t('toast_init_failed') + err.message, 'error');
