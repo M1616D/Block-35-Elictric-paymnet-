@@ -735,7 +735,7 @@ function showDrillDown(type) {
                           item.status === 'pending' ? '<span class="badge badge-pending">Pending</span>' :
                           '<span class="badge badge-none">No Bill</span>';
             html += `<div class="flex items-center gap-3 py-2 border-b" style="border-color:var(--app-border);">
-                ${avatar}
+                ${ringAvatar}
                 <div class="flex-1 min-w-0"><p class="text-xs font-semibold text-app-textBase truncate">${item.name}</p><p class="text-[10px] text-app-textMuted">${item.house}</p></div>
                 <div class="text-right">${badge}<p class="text-[10px] text-app-textMuted mt-0.5">${Utils.formatCurrency(item.amount)} ETB</p></div>
             </div>`;
@@ -870,7 +870,7 @@ async function renderDashboard() {
                     ? `<img src="${r.photo}" class="w-7 h-7 rounded-full object-cover" alt="">`
                     : `<div class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
                 return `<div class="flex items-center gap-2 py-1.5 px-2 rounded-lg" style="background:var(--dark-700);">
-                    ${avatar}
+                    ${ringAvatar}
                     <div class="flex-1 min-w-0"><p class="text-[11px] font-semibold text-app-textBase truncate">${r.firstName} ${r.lastName}</p><p class="text-[9px] text-app-textMuted">${r.houseNumber}</p></div>
                     <span class="text-[10px] font-bold text-emerald-400">${Utils.formatCurrency(r.bill?.etbAmount || 0)} ETB</span>
                 </div>`;
@@ -1055,9 +1055,9 @@ async function renderResidents() {
                             bill ? '<span class="badge badge-pending">Pending</span>' :
                             '<span class="badge badge-none">No Bill</span>';
 
-        const avatar = r.photo
-            ? `<img src="${r.photo}" class="w-12 h-12 rounded-xl object-cover" alt="">`
-            : `<div class="w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
+        const ringAvatar = r.photo
+            ? `<div class="ring-avatar"><div class="ring-border"></div><img src="${r.photo}" alt=""></div>`
+            : `<div class="ring-avatar"><div class="ring-border"></div><div class="ring-inner">${Utils.getInitials(r.firstName, r.lastName)}</div></div>`;
 
         const roomLabel = r.roomType ? r.roomType.toUpperCase() : '';
         const typeLabel = r.houseType === 'shared' ? '⚡Watt' : r.houseType === 'reader' ? '📟Reader' : '';
@@ -1065,7 +1065,7 @@ async function renderResidents() {
 
         return `<div class="resident-card-new">
             <div class="rcn-left">
-                ${avatar}
+                ${ringAvatar}
             </div>
             <div class="rcn-body">
                 <div class="rcn-top">
@@ -1139,9 +1139,7 @@ async function renderBills() {
             }
         }
 
-        const avatar = r.photo
-            ? `<img src="${r.photo}" class="w-10 h-10 rounded-full object-cover" alt="">`
-            : `<div class="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
+        // ringAvatar already defined above
 
         const roomLabel = r.roomType ? `· ${r.roomType.toUpperCase()}` : '';
         const typeIcon = r.houseType === 'reader' ? '📟' : '⚡';
@@ -1173,29 +1171,29 @@ async function renderBills() {
         // Action button
         let actionHTML = '';
         if (isPaid) {
-            actionHTML = `<button onclick="openReceiptViewer('${payment.id}')" class="watts-action-btn paid-btn" title="View Receipt">📄</button>`;
+            actionHTML = `<button onclick="event.stopPropagation(); openReceiptViewer('${payment.id}')" class="watts-action-btn paid-btn" title="View Receipt">📄</button>`;
         } else if (bill) {
-            actionHTML = `<button onclick="quickPayResident('${r.id}', '${bill.id}')" class="watts-action-btn pay-btn" title="Mark Paid">💰</button>`;
+            actionHTML = `<button onclick="event.stopPropagation(); quickPayResident('${r.id}', '${bill.id}')" class="watts-action-btn pay-btn" title="Mark Paid">💰 Pay</button>`;
         }
 
-        return `<div class="watts-card ${isPaid ? 'watts-card-paid' : ''}">
+        return `<div class="watts-card ${isPaid ? 'watts-card-paid' : ''}" onclick="event.stopPropagation(); openDetailModal('${r.id}')">
             <div class="wc-top">
                 <div class="wc-info">
-                    ${avatar}
+                    ${ringAvatar}
                     <div class="wc-text">
                         <p class="wc-name">${r.firstName} ${r.lastName}</p>
-                        <p class="wc-sub">${typeIcon} ${r.houseNumber} ${roomLabel}</p>
+                        <p class="wc-sub">${typeIcon} ${r.houseNumber}${roomLabel ? ' · ' + roomLabel : ''}</p>
                     </div>
                 </div>
                 ${statusBadge}
             </div>
             <div class="wc-bottom">
                 <div class="wc-amount">
-                    ${r.houseType !== 'reader' ? `<input type="number" class="dark-input text-xs watts-input" data-resident-id="${r.id}" min="0" step="0.01" value="${watts}" placeholder="kWh">` : `<span class="text-[10px] text-app-textMuted">Fixed</span>`}
+                    ${r.houseType !== 'reader' ? `<input type="number" class="dark-input text-xs watts-input" data-resident-id="${r.id}" min="0" step="0.01" value="${watts}" placeholder="kWh" onclick="event.stopPropagation()">` : `<span class="text-[10px] text-app-textMuted">Fixed</span>`}
                     <span class="watts-etb-display" data-resident-id="${r.id}">${Utils.formatCurrency(etb)} ETB</span>
                 </div>
                 <div class="wc-btns">
-                    ${eepCalc && watts > 0 ? `<button class="watts-toggle-btn" onclick="toggleBreakdown('${r.id}')" title="Show breakdown">▾</button>` : ''}
+                    ${eepCalc && watts > 0 ? `<button class="watts-toggle-btn" onclick="event.stopPropagation(); toggleBreakdown('${r.id}')" title="Show breakdown">▾</button>` : ''}
                     ${actionHTML}
                 </div>
             </div>
@@ -1288,9 +1286,9 @@ async function renderPayments() {
                             item.status === 'pending' ? '<span class="badge badge-pending">⏳ Pending</span>' :
                             '<span class="badge badge-none">No Bill</span>';
 
-        const avatar = r.photo
-            ? `<img src="${r.photo}" class="w-11 h-11 rounded-xl object-cover" alt="">`
-            : `<div class="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
+        const ringAvatar = r.photo
+            ? `<div class="ring-avatar"><div class="ring-border"></div><img src="${r.photo}" alt=""></div>`
+            : `<div class="ring-avatar"><div class="ring-border"></div><div class="ring-inner">${Utils.getInitials(r.firstName, r.lastName)}</div></div>`;
 
         // Calculate actual EEP total
         let displayETB = item.bill?.etbAmount || 0;
@@ -1300,14 +1298,14 @@ async function renderPayments() {
 
         let actionBtn = '';
         if (item.status === 'pending' && item.bill) {
-            actionBtn = `<button onclick="quickPayResident('${r.id}', '${item.bill.id}')" class="pay-action-btn">
+            actionBtn = `<button onclick="event.stopPropagation(); quickPayResident('${r.id}', '${item.bill.id}')" class="pay-action-btn">
                 <i class="ph ph-currency-dollar"></i>
                 <span>Pay Now</span>
             </button>`;
         } else if (item.status === 'paid') {
             actionBtn = `<div class="flex items-center gap-2">
                 <span class="text-xs font-bold text-emerald-400">${Utils.formatCurrency(item.payment.amountPaid)} ETB</span>
-                <button onclick="openReceiptViewer('${item.payment.id}')" class="receipt-action-btn" title="View Receipt"><i class="ph ph-receipt"></i></button>
+                <button onclick="event.stopPropagation(); openReceiptViewer('${item.payment.id}')" class="receipt-action-btn" title="View Receipt"><i class="ph ph-receipt"></i></button>
             </div>`;
         } else {
             actionBtn = `<span class="text-[10px] text-app-textDarker">—</span>`;
@@ -1319,7 +1317,7 @@ async function renderPayments() {
 
                 return `<div class="payment-card-new">
             <div class="pc-top">
-                <div class="pc-left">${avatar}</div>
+                <div class="pc-left">${ringAvatar}</div>
                 <div class="pc-body">
                     <div class="pc-head">
                         <span class="pc-name">${r.firstName} ${r.lastName}</span>
@@ -1800,7 +1798,7 @@ function openDetailModal(residentId, context) {
     
     const html = `
         <div class="detail-header">
-            ${avatar}
+            ${ringAvatar}
             <div>
                 <h3 class="detail-name">${r.firstName} ${r.lastName}</h3>
                 <span class="detail-status" style="background:${statusColor}20;color:${statusColor}">${statusText}</span>
@@ -2563,7 +2561,7 @@ async function renderPunish() {
             }
 
             html += `<div class="flex items-center gap-3 p-3 rounded-xl mb-2" style="background:var(--dark-700); ${isDisconnected ? 'border:1px solid #EF4444;' : ''}">
-                ${avatar}
+                ${ringAvatar}
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-semibold text-app-textBase">${r.firstName} ${r.lastName}</p>
                     <p class="text-[10px] text-app-textMuted">🏠 ${r.houseNumber} · ${Utils.formatCurrency(billAmount)} ETB</p>
