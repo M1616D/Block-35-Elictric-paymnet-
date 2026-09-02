@@ -559,22 +559,22 @@ function generateReceiptHTML(payment, bill, resident, eepCalc, settings) {
         body { background-color: #e5e5e5; padding: 1.5rem 0.5rem; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
         .invoice-container { width: 100%; max-width: 800px; background-color: #2a2c31; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); position: relative; overflow: hidden; color: #ffffff; }
         .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.03; pointer-events: none; width: 60%; z-index: 0; }
-        .top-shape { position: absolute; top: 0; right: 0; width: 55%; height: 200px; background-color: #e91e32; clip-path: polygon(100% 0, 100% 100%, 60% 50%, 0 0); z-index: 2; }
-        .top-shape-shadow { position: absolute; top: 0; right: 0; width: 65%; height: 160px; background-color: #1a1a1d; clip-path: polygon(100% 0, 100% 100%, 55% 60%, 0 0); z-index: 1; opacity: 0.5; }
-        .bottom-shape { position: absolute; bottom: 0; left: 0; width: 40%; height: 100px; background-color: #e91e32; clip-path: polygon(0 0, 20% 100%, 0 100%); z-index: 10; }
-        .bottom-shape-shadow { position: absolute; bottom: 0; left: 0; width: 50%; height: 120px; background-color: #1a1a1d; clip-path: polygon(0 0, 40% 100%, 0 100%); z-index: 5; opacity: 0.3; }
+        .receipt-shapes { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; overflow: hidden; }
         .table-row-dark { background-color: #212328; border-radius: 8px; margin-bottom: 4px; }
         @media print { body { padding: 0; background: #fff; } .no-print { display: none !important; } .invoice-container { box-shadow: none; } }
     </style>
 </head>
 <body class="antialiased">
-    <main class="invoice-container flex flex-col pt-12 pb-16 px-6 sm:px-12 z-20">            <div class="top-shape-shadow"></div>
-        <div class="top-shape"></div>
+    <main class="invoice-container flex flex-col pt-12 pb-16 px-6 sm:px-12 z-20">            <svg class="receipt-shapes" viewBox="0 0 800 1200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="800,0 800,800 350,0" fill="#1a1a1d" opacity="0.5"/>
+            <polygon points="800,0 800,1000 500,0" fill="#e91e32"/>
+            <polygon points="0,1200 200,1200 0,1080" fill="#1a1a1d" opacity="0.3"/>
+            <polygon points="0,1200 300,1200 0,1020" fill="#e91e32"/>
+        </svg>
         <div style="position:relative;z-index:20;display:flex;justify-content:flex-end;padding:2.5rem 3rem 0 0;">
             <h1 class="text-2xl sm:text-4xl font-bold text-white tracking-wider">Receipt</h1>
         </div>
-        <div class="bottom-shape-shadow"></div>
-        <div class="bottom-shape"></div>
+
         <svg class="watermark" viewBox="0 0 100 100" fill="white"><polygon points="50,10 90,50 50,90 10,50"/><polygon points="50,25 75,50 50,75 25,50" fill="#2a2c31"/></svg>
 
         <div class="relative z-20 w-full mb-8">
