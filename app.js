@@ -559,8 +559,8 @@ function generateReceiptHTML(payment, bill, resident, eepCalc, settings) {
         body { background-color: #e5e5e5; padding: 1.5rem 0.5rem; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; }
         .invoice-container { width: 100%; max-width: 800px; background-color: #2a2c31; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); position: relative; overflow: hidden; color: #ffffff; }
         .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); opacity: 0.03; pointer-events: none; width: 60%; z-index: 0; }
-        .top-shape { position: absolute; top: 0; right: 0; width: 65%; height: 200px; background-color: #e91e32; clip-path: polygon(100% 0, 100% 100%, 80% 50%, 0 0); z-index: 10; }
-        .top-shape-shadow { position: absolute; top: 0; right: 0; width: 75%; height: 160px; background-color: #1a1a1d; clip-path: polygon(100% 0, 100% 100%, 75% 60%, 0 0); z-index: 5; opacity: 0.5; }
+        .top-shape { position: absolute; top: 0; right: 0; width: 55%; height: 200px; background-color: #e91e32; clip-path: polygon(100% 0, 100% 100%, 60% 50%, 0 0); z-index: 2; }
+        .top-shape-shadow { position: absolute; top: 0; right: 0; width: 65%; height: 160px; background-color: #1a1a1d; clip-path: polygon(100% 0, 100% 100%, 55% 60%, 0 0); z-index: 1; opacity: 0.5; }
         .bottom-shape { position: absolute; bottom: 0; left: 0; width: 40%; height: 100px; background-color: #e91e32; clip-path: polygon(0 0, 20% 100%, 0 100%); z-index: 10; }
         .bottom-shape-shadow { position: absolute; bottom: 0; left: 0; width: 50%; height: 120px; background-color: #1a1a1d; clip-path: polygon(0 0, 40% 100%, 0 100%); z-index: 5; opacity: 0.3; }
         .table-row-dark { background-color: #212328; border-radius: 8px; margin-bottom: 4px; }
@@ -568,10 +568,10 @@ function generateReceiptHTML(payment, bill, resident, eepCalc, settings) {
     </style>
 </head>
 <body class="antialiased">
-    <main class="invoice-container flex flex-col pt-12 pb-16 px-6 sm:px-12 z-20">
-        <div class="top-shape-shadow"></div>
-        <div class="top-shape flex justify-end items-start pr-8 sm:pr-12 pt-10 sm:pt-12">
-            <h1 class="text-2xl sm:text-4xl font-bold text-white tracking-wider z-20 relative mr-4 sm:mr-8 mt-2">Receipt</h1>
+    <main class="invoice-container flex flex-col pt-12 pb-16 px-6 sm:px-12 z-20">            <div class="top-shape-shadow"></div>
+        <div class="top-shape"></div>
+        <div style="position:relative;z-index:20;display:flex;justify-content:flex-end;padding:2.5rem 3rem 0 0;">
+            <h1 class="text-2xl sm:text-4xl font-bold text-white tracking-wider">Receipt</h1>
         </div>
         <div class="bottom-shape-shadow"></div>
         <div class="bottom-shape"></div>
@@ -606,7 +606,7 @@ function generateReceiptHTML(payment, bill, resident, eepCalc, settings) {
                     <h3 class="text-sm sm:text-lg font-semibold mb-2">${buildingName}</h3>
                     <div class="text-[9px] sm:text-xs text-invoice-textMuted leading-relaxed space-y-0.5">
                         ${address ? `<p>${address}</p>` : ''}
-                        ${phone ? `<p>Contact: ${phone}</p>` : ''}
+                        <p>Contact: ${phone || '+251 96 858 5071'}</p>
                         <p>${monthName} ${payment.year || new Date().getFullYear()} Bill</p>
                     </div>
                 </div>
@@ -700,7 +700,7 @@ function generateReceiptHTML(payment, bill, resident, eepCalc, settings) {
                     <div class="w-7 h-7 rounded bg-[#212328] flex items-center justify-center border border-[#3d4047]">
                         <i class="ph-fill ph-phone text-white text-sm"></i>
                     </div>
-                    <div class="text-[8px] sm:text-[9px] text-invoice-textMuted leading-tight"><p>${phone || '+251-XX-XXX-XXXX'}</p><p>Block 35</p></div>
+                    <div class="text-[8px] sm:text-[9px] text-invoice-textMuted leading-tight"><p>${phone || '+251 96 858 5071'}</p><p>Electrical Payment System</p></div>
                 </div>
             </div>
             <div class="text-center w-32 sm:w-40">
@@ -714,9 +714,16 @@ function generateReceiptHTML(payment, bill, resident, eepCalc, settings) {
             </div>
         </div>
     </main>
-    <script>
-        function downloadReceipt() { window.print(); }
-    <\/script>
+    <style>
+        .download-btn { position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: linear-gradient(135deg, #e91e32, #b81223); color: white; border: none; padding: 14px 28px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 25px rgba(233,30,50,0.4); transition: all 0.2s; font-family: Montserrat, sans-serif; }
+        .download-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 35px rgba(233,30,50,0.5); }
+        .download-btn:active { transform: translateY(0); }
+        @media print { .download-btn { display: none !important; } }
+    </style>
+    <button class="download-btn no-print" onclick="window.print()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download / Print Receipt
+    </button>
 </body>
 </html>`;
 }
