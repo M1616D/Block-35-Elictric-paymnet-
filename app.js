@@ -714,16 +714,61 @@ function generateReceiptHTML(payment, bill, resident, eepCalc, settings) {
             </div>
         </div>
     </main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
     <style>
-        .download-btn { position: fixed; bottom: 20px; right: 20px; z-index: 9999; background: linear-gradient(135deg, #e91e32, #b81223); color: white; border: none; padding: 14px 28px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 25px rgba(233,30,50,0.4); transition: all 0.2s; font-family: Montserrat, sans-serif; }
-        .download-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 35px rgba(233,30,50,0.5); }
-        .download-btn:active { transform: translateY(0); }
-        @media print { .download-btn { display: none !important; } }
+        .dl-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999; background: #1a1a1d; border-top: 1px solid #333; padding: 12px 20px; display: flex; align-items: center; justify-content: center; gap: 12px; box-shadow: 0 -4px 20px rgba(0,0,0,0.4); }
+        .dl-btn { border: none; padding: 12px 24px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; font-family: Montserrat, sans-serif; }
+        .dl-btn-pdf { background: linear-gradient(135deg, #e91e32, #b81223); color: white; box-shadow: 0 4px 15px rgba(233,30,50,0.3); }
+        .dl-btn-pdf:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(233,30,50,0.5); }
+        .dl-btn-png { background: linear-gradient(135deg, #0070f3, #0050c0); color: white; box-shadow: 0 4px 15px rgba(0,112,243,0.3); }
+        .dl-btn-png:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,112,243,0.5); }
+        .dl-btn:active { transform: translateY(0); }
+        .dl-btn:disabled { opacity: 0.5; cursor: wait; transform: none; }
+        @media print { .dl-bar { display: none !important; } }
     </style>
-    <button class="download-btn no-print" onclick="window.print()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        Download / Print Receipt
-    </button>
+    <div class="dl-bar no-print">
+        <button class="dl-btn dl-btn-pdf" id="dlPdfBtn" onclick="downloadAsPDF()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Download PDF
+        </button>
+        <button class="dl-btn dl-btn-png" id="dlPngBtn" onclick="downloadAsPNG()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            Download PNG
+        </button>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
+    <script>
+        async function downloadAsPDF() {
+            const btn = document.getElementById('dlPdfBtn');
+            btn.disabled = true; btn.innerHTML = '<span>Generating PDF...</span>';
+            try {
+                const el = document.querySelector('.invoice-container');
+                const canvas = await html2canvas(el, { scale: 2, backgroundColor: '#2a2c31', useCORS: true, logging: false });
+                const { jsPDF } = window.jspdf;
+                const imgData = canvas.toDataURL('image/png');
+                const pdfW = 210; const pdfH = (canvas.height * pdfW) / canvas.width;
+                const pdf = new jsPDF('p', 'mm', [pdfW, pdfH]);
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfW, pdfH);
+                pdf.save('Receipt-${residentName.replace(/ /g, '_')}.pdf');
+            } catch(e) { alert('Download failed: ' + e.message); console.error(e); }
+            btn.disabled = false; btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Download PDF';
+        }
+        async function downloadAsPNG() {
+            const btn = document.getElementById('dlPngBtn');
+            btn.disabled = true; btn.innerHTML = '<span>Generating PNG...</span>';
+            try {
+                const el = document.querySelector('.invoice-container');
+                const canvas = await html2canvas(el, { scale: 3, backgroundColor: '#2a2c31', useCORS: true, logging: false });
+                const link = document.createElement('a');
+                link.download = 'Receipt-${residentName.replace(/ /g, '_')}.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } catch(e) { alert('Download failed: ' + e.message); console.error(e); }
+            btn.disabled = false; btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Download PNG';
+        }
+    <\/script>
 </body>
 </html>`;
 }
