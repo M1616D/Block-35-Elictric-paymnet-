@@ -307,7 +307,97 @@ const AppState = {
     batchIndex: 0, batchHouses: [], punishments: [], punishments: [],
     currentFilter: { floor: 'all', search: '', billFloor: 'all', payStatus: 'all', reportTab: 'overview' },
     lockTimeout: 5, lockTimer: null, lastActivity: Date.now(),
-    credentials: { username: 'admin', password: 'admin123' }
+    credentials: { username: 'admin', password: 'admin123' },
+    // Security: rate limiting + session management
+    loginAttempts: parseInt(localStorage.getItem('condobill-loginAttempts') || '0'),
+    lockUntil: parseInt(localStorage.getItem('condobill-lockUntil') || '0'),
+    sessionToken: localStorage.getItem('condobill-session') || null,
+    sessionExpiry: parseInt(localStorage.getItem('condobill-sessionExpiry') || '0')
+};
+
+// ==================== SECURITY MODULE ====================
+const Security = {
+    MAX_ATTEMPTS: 5,
+    LOCKOUT_MS: 5 * 60 * 1000, // 5 minutes
+    SESSION_MS: 30 * 60 * 1000, // 30 minutes
+    MIN_PASSWORD_LENGTH: 8,
+
+    /** Validate password strength */
+    validatePassword(pw) {
+        if (!pw || pw.length < this.MIN_PASSWORD_LENGTH) return { ok: false, msg: `Password must be at least ${this.MIN_PASSWORD_LENGTH} characters` };
+        if (!/[A-Z]/.test(pw)) return { ok: false, msg: 'Password must contain an uppercase letter' };
+        if (!/[a-z]/.test(pw)) return { ok: false, msg: 'Password must contain a lowercase letter' };
+        if (!/[0-9]/.test(pw)) return { ok: false, msg: 'Password must contain a number' };
+        return { ok: true, msg: '' };
+    },
+
+    /** Check if account is locked out */
+    isLocked() {
+        if (AppState.lockUntil > Date.now()) return true;
+        // Lockout expired, reset
+        if (AppState.lockUntil > 0 && AppState.lockUntil <= Date.now()) {
+            AppState.loginAttempts = 0;
+            AppState.lockUntil = 0;
+            localStorage.setItem('condobill-loginAttempts', '0');
+            localStorage.setItem('condobill-lockUntil', '0');
+        }
+        return false;
+    },
+
+    /** Record a failed login */
+    recordFailedAttempt() {
+        AppState.loginAttempts++;
+        localStorage.setItem('condobill-loginAttempts', String(AppState.loginAttempts));
+        if (AppState.loginAttempts >= this.MAX_ATTEMPTS) {
+            AppState.lockUntil = Date.now() + this.LOCKOUT_MS;
+            localStorage.setItem('condobill-lockUntil', String(AppState.lockUntil));
+        }
+    },
+
+    /** Reset attempts on success */
+    resetAttempts() {
+        AppState.loginAttempts = 0;
+        AppState.lockUntil = 0;
+        localStorage.setItem('condobill-loginAttempts', '0');
+        localStorage.setItem('condobill-lockUntil', '0');
+    },
+
+    /** Generate session token */
+    createSession() {
+        const token = Array.from(crypto.getRandomValues(new Uint8Array(32)))
+            .map(b => b.toString(16).padStart(2, '0')).join('');
+        AppState.sessionToken = token;
+        AppState.sessionExpiry = Date.now() + this.SESSION_MS;
+        localStorage.setItem('condobill-session', token);
+        localStorage.setItem('condobill-sessionExpiry', String(AppState.sessionExpiry));
+        return token;
+    },
+
+    /** Validate session */
+    isSessionValid() {
+        if (!AppState.sessionToken) return false;
+        if (Date.now() > AppState.sessionExpiry) {
+            this.destroySession();
+            return false;
+        }
+        return true;
+    },
+
+    /** Destroy session */
+    destroySession() {
+        AppState.sessionToken = null;
+        AppState.sessionExpiry = 0;
+        localStorage.removeItem('condobill-session');
+        localStorage.removeItem('condobill-sessionExpiry');
+    },
+
+    /** Hash password (simple SHA-256) */
+    async hashPassword(pw) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(pw + 'condobill-salt-2024');
+        const hash = await crypto.subtle.digest('SHA-256', data);
+        return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
 };
 
 // ==================== TOAST ====================
@@ -731,11 +821,11 @@ function showDrillDown(type) {
             const avatar = item.photo
                 ? `<img src="${item.photo}" class="w-8 h-8 rounded-full object-cover" alt="">`
                 : `<div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(item.name.split(' ')[0], item.name.split(' ')[1])}</div>`;
-            const badge = item.status === 'paid' ? '<span class="pay-badge pay-badge-paid">Paid</span>' :
-                          item.status === 'pending' ? '<span class="pay-badge pay-badge-pending">Pending</span>' :
-                          '';
+            const badge = item.status === 'paid' ? '<span class="badge badge-paid">Paid</span>' :
+                          item.status === 'pending' ? '<span class="badge badge-pending">Pending</span>' :
+                          '<span class="badge badge-none">No Bill</span>';
             html += `<div class="flex items-center gap-3 py-2 border-b" style="border-color:var(--app-border);">
-                ${ringAvatar}
+                ${avatar}
                 <div class="flex-1 min-w-0"><p class="text-xs font-semibold text-app-textBase truncate">${item.name}</p><p class="text-[10px] text-app-textMuted">${item.house}</p></div>
                 <div class="text-right">${badge}<p class="text-[10px] text-app-textMuted mt-0.5">${Utils.formatCurrency(item.amount)} ETB</p></div>
             </div>`;
@@ -870,7 +960,7 @@ async function renderDashboard() {
                     ? `<img src="${r.photo}" class="w-7 h-7 rounded-full object-cover" alt="">`
                     : `<div class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
                 return `<div class="flex items-center gap-2 py-1.5 px-2 rounded-lg" style="background:var(--dark-700);">
-                    ${ringAvatar}
+                    ${avatar}
                     <div class="flex-1 min-w-0"><p class="text-[11px] font-semibold text-app-textBase truncate">${r.firstName} ${r.lastName}</p><p class="text-[9px] text-app-textMuted">${r.houseNumber}</p></div>
                     <span class="text-[10px] font-bold text-emerald-400">${Utils.formatCurrency(r.bill?.etbAmount || 0)} ETB</span>
                 </div>`;
@@ -1051,39 +1141,39 @@ async function renderResidents() {
         const monthKey = Utils.getMonthKey(AppState.currentYear, AppState.currentMonth);
         const bill = AppState.bills.find(b => b.residentId === r.id && b.monthKey === monthKey);
         const payment = bill ? AppState.payments.find(p => p.billId === bill.id && p.monthKey === monthKey) : null;
-        const statusBadge = payment ? '<span class="res-badge res-badge-paid"><i class="ph ph-check"></i> PAID</span>' :
-                            bill ? '<span class="res-badge res-badge-pending"><i class="ph ph-clock"></i> PENDING</span>' :
-                            '';
+        const statusBadge = payment ? '<span class="badge badge-paid">Paid</span>' :
+                            bill ? '<span class="badge badge-pending">Pending</span>' :
+                            '<span class="badge badge-none">No Bill</span>';
 
-        const ringAvatar = r.photo
-            ? `<div class="ring-avatar"><div class="ring-border"></div><img src="${r.photo}" alt=""></div>`
-            : `<div class="ring-avatar"><div class="ring-border"></div><div class="ring-inner">${Utils.getInitials(r.firstName, r.lastName)}</div></div>`;
+        const avatar = r.photo
+            ? `<img src="${r.photo}" class="w-12 h-12 rounded-xl object-cover" alt="">`
+            : `<div class="w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
 
         const roomLabel = r.roomType ? r.roomType.toUpperCase() : '';
         const typeLabel = r.houseType === 'shared' ? '⚡Watt' : r.houseType === 'reader' ? '📟Reader' : '';
         const floorName = r.floor === 0 ? 'Ground' : `${r.floor}${r.floor===1?'st':r.floor===2?'nd':r.floor===3?'rd':'th'}`;
 
-        return `<div class="res-card" onclick="event.stopPropagation(); openDetailModal('${r.id}')">
-            <div class="res-card-top">
-                <div class="res-card-left">
-                    ${ringAvatar}
-                    <div class="res-card-info">
-                        <div class="res-card-name-row">
-                            <p class="res-card-name">${r.firstName} ${r.lastName}</p>
-                            ${statusBadge ? statusBadge.replace('badge-paid', 'res-badge-paid').replace('badge-pending', 'res-badge-pending').replace('badge-none', 'res-badge-none') : ''}
-                        </div>
-                    </div>
-                </div>
-                <div class="res-card-actions">
-                    <button onclick="event.stopPropagation(); openEditResidentModal('${r.id}')" class="res-action-btn" title="Edit"><i class="ph ph-pencil-simple"></i></button>
-                    <button onclick="event.stopPropagation(); deleteResident('${r.id}')" class="res-action-btn res-action-delete" title="Delete"><i class="ph ph-trash"></i></button>
-                </div>
+        return `<div class="resident-card-new">
+            <div class="rcn-left">
+                ${avatar}
             </div>
-            <div class="res-card-tags">
-                <span class="res-tag"><i class="ph-fill ph-house text-orange-400"></i> ${r.houseNumber}</span>
-                <span class="res-tag"><i class="ph-fill ph-map-pin text-pink-500"></i> ${floorName}</span>
-                ${roomLabel ? '<span class="res-tag"><i class="ph-fill ph-bed text-blue-400"></i> ' + roomLabel + '</span>' : ''}
-                ${typeLabel ? '<span class="res-tag"><i class="ph-fill ph-lightning text-orange-500"></i> ' + typeLabel + '</span>' : ''}
+            <div class="rcn-body">
+                <div class="rcn-top">
+                    <p class="rcn-name">${r.firstName} ${r.lastName}</p>
+                    ${statusBadge}
+                </div>
+                <div class="rcn-details">
+                    <span class="rcn-tag">🏠 ${r.houseNumber}</span>
+                    <span class="rcn-tag">📍 ${floorName}</span>
+                    ${roomLabel ? `<span class="rcn-tag">🛏 ${roomLabel}</span>` : ''}
+                    ${typeLabel ? `<span class="rcn-tag">${typeLabel}</span>` : ''}
+                </div>
+                ${r.phone ? `<p class="rcn-phone">📱 ${r.phone}</p>` : ''}
+                ${r.members > 1 ? `<p class="rcn-members">👥 ${r.members} members</p>` : ''}
+            </div>
+            <div class="rcn-actions">
+                <button onclick="openEditResidentModal('${r.id}')" class="rcn-btn edit-btn" title="Edit"><i class="ph ph-pencil-simple"></i></button>
+                <button onclick="deleteResident('${r.id}')" class="rcn-btn delete-btn" title="Delete"><i class="ph ph-trash"></i></button>
             </div>
         </div>`;
     }).join('');
@@ -1139,19 +1229,18 @@ async function renderBills() {
             }
         }
 
-        const ringAvatar = r.photo
-            ? `<div class="ring-avatar"><div class="ring-border"></div><img src="${r.photo}" alt=""></div>`
-            : `<div class="ring-avatar"><div class="ring-border"></div><div class="ring-inner">${Utils.getInitials(r.firstName, r.lastName)}</div></div>`;
+        const avatar = r.photo
+            ? `<img src="${r.photo}" class="w-10 h-10 rounded-full object-cover" alt="">`
+            : `<div class="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
 
-        // ringAvatar ready for use
         const roomLabel = r.roomType ? `· ${r.roomType.toUpperCase()}` : '';
         const typeIcon = r.houseType === 'reader' ? '📟' : '⚡';
 
         // Status badge
         const isPaid = !!payment;
         const statusBadge = isPaid
-            ? '<span class="wc-badge wc-badge-paid"><i class="ph ph-check"></i> Paid</span>'
-            : (bill ? '<span class="wc-badge wc-badge-pending"><i class="ph ph-clock"></i> ⏳ Pending</span>' : '<span class="wc-badge" style="display:none">—</span>');
+            ? '<span class="watts-status-badge paid">✓ Paid</span>'
+            : (bill ? '<span class="watts-status-badge pending">⏳ Pending</span>' : '<span class="watts-status-badge none">—</span>');
 
         // EEP breakdown dropdown (for watt counter only, when watts > 0)
         let breakdownHTML = '';
@@ -1174,26 +1263,25 @@ async function renderBills() {
         // Action button
         let actionHTML = '';
         if (isPaid) {
-            actionHTML = '<button onclick="event.stopPropagation(); openReceiptViewer(\'' + payment.id + '\')" class="wc-icon-btn" title="View Receipt"><i class="ph ph-receipt"></i></button>'`;
+            actionHTML = `<button onclick="openReceiptViewer('${payment.id}')" class="watts-action-btn paid-btn" title="View Receipt">📄</button>`;
         } else if (bill) {
-            actionHTML = '<button onclick="event.stopPropagation(); quickPayResident(\'' + r.id + '\', \'' + bill.id + '\')" class="wc-pay-btn" title="Mark Paid"><i class="ph ph-check"></i> Pay</button>`;
+            actionHTML = `<button onclick="quickPayResident('${r.id}', '${bill.id}')" class="watts-action-btn pay-btn" title="Mark Paid">💰</button>`;
         }
 
-        return `<div class="wc-card" onclick="event.stopPropagation(); openDetailModal('${r.id}')">
-            <div class="wc-card-left">
-                ${wAvatar}
-                <div class="wc-card-info">
-                    <p class="wc-card-name">${r.firstName} ${r.lastName}</p>
+        return `<div class="watts-card ${isPaid ? 'watts-card-paid' : ''}">
+            <div class="watts-card-top">
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                    ${avatar}
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold text-app-textBase truncate">${r.firstName} ${r.lastName}</p>
+                        <p class="text-[11px] text-app-textMuted">${typeIcon} ${r.houseNumber} ${roomLabel}</p>
+                    </div>
                     ${statusBadge}
                 </div>
-            </div>
-            <div class="wc-card-right">
-                <div class="wc-card-row1">
-                    ${r.houseType !== 'reader' ? '<input type="number" class="wc-kwh-input" data-resident-id="' + r.id + '" min="0" step="0.01" value="' + watts + '" placeholder="kWh" onclick="event.stopPropagation()">' : '<span class="text-[10px] text-app-textMuted">Fixed</span>'}
-                    <span class="wc-card-etb" data-resident-id="${r.id}">${Utils.formatCurrency(etb)} ETB</span>
-                </div>
-                <div class="wc-card-row2">
-                    ${eepCalc && watts > 0 ? '<button class="wc-icon-btn" onclick="event.stopPropagation(); toggleBreakdown(\'' + r.id + '\')" title="Show breakdown"><i class="ph ph-caret-down"></i></button>' : ''}
+                <div class="flex items-center gap-2">
+                    ${r.houseType !== 'reader' ? `<input type="number" class="dark-input text-xs w-20 text-center watts-input" data-resident-id="${r.id}" min="0" step="0.01" value="${watts}" placeholder="kWh">` : `<span class="text-[11px] text-app-textMuted px-2">Fixed</span>`}
+                    <span class="watts-etb-display" data-resident-id="${r.id}">${Utils.formatCurrency(etb)} ETB</span>
+                    ${eepCalc && watts > 0 ? `<button class="watts-toggle-btn" onclick="toggleBreakdown('${r.id}')" title="Show breakdown">▾</button>` : ''}
                     ${actionHTML}
                 </div>
             </div>
@@ -1282,13 +1370,13 @@ async function renderPayments() {
 
     list.innerHTML = items.map(item => {
         const r = item.resident;
-        const statusBadge = item.status === 'paid' ? '<span class="pay-badge pay-badge-paid">✓ Paid</span>' :
-                            item.status === 'pending' ? '<span class="pay-badge pay-badge-pending">⏳ Pending</span>' :
-                            '';
+        const statusBadge = item.status === 'paid' ? '<span class="badge badge-paid">✓ Paid</span>' :
+                            item.status === 'pending' ? '<span class="badge badge-pending">⏳ Pending</span>' :
+                            '<span class="badge badge-none">No Bill</span>';
 
-        const ringAvatar = r.photo
-            ? `<div class="ring-avatar"><div class="ring-border"></div><img src="${r.photo}" alt=""></div>`
-            : `<div class="ring-avatar"><div class="ring-border"></div><div class="ring-inner">${Utils.getInitials(r.firstName, r.lastName)}</div></div>`;
+        const avatar = r.photo
+            ? `<img src="${r.photo}" class="w-11 h-11 rounded-xl object-cover" alt="">`
+            : `<div class="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
 
         // Calculate actual EEP total
         let displayETB = item.bill?.etbAmount || 0;
@@ -1298,36 +1386,42 @@ async function renderPayments() {
 
         let actionBtn = '';
         if (item.status === 'pending' && item.bill) {
-            actionBtn = '<button onclick="event.stopPropagation(); quickPayResident(\'' + r.id + '\', \'' + item.bill.id + '\')" class="pay-action-btn"><i class="ph ph-check"></i> Pay</button>';
+            actionBtn = `<button onclick="quickPayResident('${r.id}', '${item.bill.id}')" class="pay-action-btn">
+                <i class="ph ph-currency-dollar"></i>
+                <span>Pay Now</span>
+            </button>`;
         } else if (item.status === 'paid') {
-            actionBtn = '<button onclick="event.stopPropagation(); openReceiptViewer(\'' + item.payment.id + '\')" class="pay-receipt-btn" title="View Receipt"><i class="ph ph-receipt"></i></button>';
+            actionBtn = `<div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-emerald-400">${Utils.formatCurrency(item.payment.amountPaid)} ETB</span>
+                <button onclick="openReceiptViewer('${item.payment.id}')" class="receipt-action-btn" title="View Receipt"><i class="ph ph-receipt"></i></button>
+            </div>`;
         } else {
-            actionBtn = '';
+            actionBtn = `<span class="text-[10px] text-app-textDarker">—</span>`;
         }
 
         const floorName = r.floor === 0 ? 'G' : r.floor;
         const roomLabel = r.roomType ? r.roomType.toUpperCase() : '';
         const typeLabel = r.houseType === 'shared' ? '⚡Watt' : '📟Reader';
 
-                return `<div class="pay-card" onclick="event.stopPropagation(); openDetailModal('${r.id}')">
-            <div class="pay-card-left">
-                ${ringAvatar}
-                <div class="pay-card-info">
-                    <div class="pay-card-name-row">
-                        <span class="pay-card-name">${r.firstName} ${r.lastName}</span>
-                        ${statusBadge}
-                    </div>
-                </div>
+        return `<div class="payment-card-new">
+            <div class="pcn-left">
+                ${avatar}
             </div>
-            <div class="pay-card-right">
-                <div class="pay-card-tags">
-                    <span class="pay-tag"><i class="ph-fill ph-lightning text-orange-500"></i> ${typeLabel} ${r.houseNumber}</span>
-                    <span class="pay-tag"><b class="text-white">${floorName}</b> ${roomLabel}</span>
+            <div class="pcn-body">
+                <div class="pcn-top">
+                    <p class="pcn-name">${r.firstName} ${r.lastName}</p>
+                    ${statusBadge}
                 </div>
-                <div class="pay-card-bottom">
-                    <span class="pay-card-etb">${item.bill ? Utils.formatCurrency(displayETB) + ' ETB' : 'No bill'}</span>
-                    <div class="pay-card-action">${actionBtn}</div>
+                <div class="pcn-info">
+                    <span>🏠 ${r.houseNumber}</span>
+                    <span>📍 ${floorName}</span>
+                    <span>${typeLabel}</span>
+                    ${roomLabel ? `<span>🛏 ${roomLabel}</span>` : ''}
                 </div>
+                <p class="pcn-amount">${item.bill ? `${Utils.formatCurrency(displayETB)} ETB` : 'No bill'}</p>
+            </div>
+            <div class="pcn-action">
+                ${actionBtn}
             </div>
         </div>`;
     }).join('');
@@ -1793,7 +1887,7 @@ function openDetailModal(residentId, context) {
     
     const html = `
         <div class="detail-header">
-            ${ringAvatar}
+            ${avatar}
             <div>
                 <h3 class="detail-name">${r.firstName} ${r.lastName}</h3>
                 <span class="detail-status" style="background:${statusColor}20;color:${statusColor}">${statusText}</span>
@@ -1879,18 +1973,30 @@ function setupLoginUI() {
 
     if (loginBtn) {
         loginBtn.addEventListener('click', async () => {
+            // Rate limiting check
+            if (Security.isLocked()) {
+                const remaining = Math.ceil((AppState.lockUntil - Date.now()) / 60000);
+                const errEl = document.getElementById('loginError');
+                errEl.textContent = `Account locked. Try again in ${remaining} minute(s)`;
+                errEl.style.display = 'block';
+                return;
+            }
             const u = loginUsername.value.trim();
             const p = loginPassword.value;
             if (u === AppState.credentials.username && p === AppState.credentials.password) {
+                Security.resetAttempts();
+                Security.createSession();
                 document.getElementById('loginError').style.display = 'none';
-                // Show app container immediately (login hides)
                 showApp();
-                // Initialize all data and render pages
                 await init();
                 resetLockTimer();
             } else {
+                Security.recordFailedAttempt();
+                const remaining = Security.MAX_ATTEMPTS - AppState.loginAttempts;
                 const errEl = document.getElementById('loginError');
-                errEl.textContent = 'Invalid username or password';
+                errEl.textContent = remaining > 0
+                    ? `Invalid credentials (${remaining} attempts left)`
+                    : 'Account locked for 5 minutes';
                 errEl.style.display = 'block';
             }
         });
@@ -1906,12 +2012,24 @@ function setupLoginUI() {
     const unlockBtn = document.getElementById('unlockBtn');
     if (unlockBtn) {
         unlockBtn.addEventListener('click', () => {
+            if (Security.isLocked()) {
+                const errEl = document.getElementById('lockError');
+                errEl.textContent = 'Account temporarily locked';
+                errEl.style.display = 'block';
+                return;
+            }
             const pw = document.getElementById('lockPassword').value;
             if (pw === AppState.credentials.password) {
+                Security.resetAttempts();
+                Security.createSession();
                 hideLockScreen();
             } else {
+                Security.recordFailedAttempt();
                 const errEl = document.getElementById('lockError');
-                errEl.textContent = 'Wrong password';
+                const remaining = Security.MAX_ATTEMPTS - AppState.loginAttempts;
+                errEl.textContent = remaining > 0
+                    ? `Wrong password (${remaining} attempts left)`
+                    : 'Account locked for 5 minutes';
                 errEl.style.display = 'block';
             }
         });
@@ -1946,10 +2064,13 @@ function setupCredentialsUI() {
                 errEl.style.display = 'block';
                 return;
             }
-            if (newPw && newPw.length < 4) {
-                errEl.textContent = 'Password must be at least 4 characters';
-                errEl.style.display = 'block';
-                return;
+            if (newPw) {
+                const pwCheck = Security.validatePassword(newPw);
+                if (!pwCheck.ok) {
+                    errEl.textContent = pwCheck.msg;
+                    errEl.style.display = 'block';
+                    return;
+                }
             }
 
             errEl.style.display = 'none';
@@ -2556,7 +2677,7 @@ async function renderPunish() {
             }
 
             html += `<div class="flex items-center gap-3 p-3 rounded-xl mb-2" style="background:var(--dark-700); ${isDisconnected ? 'border:1px solid #EF4444;' : ''}">
-                ${ringAvatar}
+                ${avatar}
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-semibold text-app-textBase">${r.firstName} ${r.lastName}</p>
                     <p class="text-[10px] text-app-textMuted">🏠 ${r.houseNumber} · ${Utils.formatCurrency(billAmount)} ETB</p>
@@ -2630,17 +2751,6 @@ async function removePunishment(residentId, monthKey) {
     renderPunish();
 }
 
-// Auto-close modals on overlay click
-function setupModalCloseHandlers() {
-    document.querySelectorAll(".modal-overlay").forEach(overlay => {
-        overlay.addEventListener("click", (e) => {
-            if (e.target === overlay) {
-                overlay.classList.add("hidden");
-            }
-        });
-    });
-}
-
 // ==================== INIT ====================
 let _setupDone = false;
 async function init() {
@@ -2688,8 +2798,7 @@ async function init() {
         // Navigate to dashboard
         navigateTo('dashboard');
         resetLockTimer();
-        setupModalCloseHandlers();
-    _setupDone = true;
+        _setupDone = true;
     } catch (err) {
         console.error('Init error:', err);
         showToast(t('toast_init_failed') + err.message, 'error');
