@@ -916,73 +916,201 @@
             transition: width 0.3s ease;
         }
     
-/* ===== WATTS CARD NEW DESIGN ===== */
-.watts-card { background: var(--dark-700); border-radius: 14px; padding: 14px; border: 1px solid rgba(255,255,255,0.04); transition: all 0.2s; cursor: pointer; }
-.watts-card:active { transform: scale(0.99); }
-.watts-card:hover { border-color: rgba(181,246,84,0.2); }
-.watts-card-paid { border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.05); }
-.watts-row1 { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.watts-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
-.watts-name-block { min-width: 0; }
-.watts-name { font-size: 13px; font-weight: 600; color: var(--app-textBase); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
-.watts-sub { font-size: 10px; color: var(--app-textMuted); }
-.watts-row2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.watts-amount-block { display: flex; align-items: center; gap: 8px; }
-.watts-actions { display: flex; align-items: center; gap: 6px; }
-.watts-status-badge { font-size: 10px; padding: 3px 8px; border-radius: 6px; font-weight: 600; white-space: nowrap; }
-.watts-status-badge.paid { background: rgba(16,185,129,0.15); color: #10B981; }
-.watts-status-badge.pending { background: rgba(249,115,22,0.15); color: #F97316; }
-.watts-status-badge.none { background: rgba(255,255,255,0.06); color: #6b7280; }
-.watts-etb-display { font-size: 12px; font-weight: 700; color: var(--app-brand); white-space: nowrap; }
-.watts-toggle-btn { background: var(--dark-900); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--app-textMuted); font-size: 12px; transition: all 0.2s; flex-shrink: 0; }
-.watts-toggle-btn:hover { color: var(--app-brand); border-color: var(--app-brand); }
-.watts-action-btn { border: none; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s; flex-shrink: 0; }
-.pay-action-btn { display: flex; align-items: center; gap: 4px; background: var(--app-brand); color: #000; border-radius: 8px; padding: 6px 14px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-.pay-action-btn:hover { transform: scale(1.05); box-shadow: 0 0 12px rgba(181,246,84,0.4); }
-.receipt-action-btn { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: var(--dark-900); color: var(--app-textMuted); border: 1px solid rgba(255,255,255,0.06); cursor: pointer; transition: all 0.2s; }
-.receipt-action-btn:hover { color: #e91e32; border-color: #e91e32; }
-.pay-btn { background: var(--app-brand); color: #000; font-size: 11px; padding: 6px 10px; }
-.pay-btn:hover { box-shadow: 0 0 12px rgba(181,246,84,0.4); }
-.paid-btn { background: var(--dark-900); color: var(--app-textMuted); font-size: 11px; padding: 6px 10px; }
+/* ===== CARD SHARED: Green Ring Avatar ===== */
+/* ===== RING AVATAR (shared) ===== */
+.card-ring-avatar, .rcn-avatar, .wc-avatar, .pay-avatar {
+    width: 42px; height: 42px; border-radius: 50%;
+    border: 2.5px solid var(--app-brand);
+    background: var(--dark-900);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; color: var(--app-brand);
+    flex-shrink: 0;
+    box-shadow: 0 0 8px rgba(158,255,47,0.15);
+    overflow: hidden;
+}
+.card-ring-avatar img, .rcn-avatar img, .wc-avatar img, .pay-avatar img {
+    width: 100%; height: 100%; object-fit: cover; border-radius: 50%;
+}
 
-/* EEP Breakdown Dropdown */
-.watts-breakdown { margin-top: 10px; padding: 10px 14px; background: var(--dark-900); border-radius: 10px; border: 1px solid rgba(255,255,255,0.04); }
-.watts-breakdown.hidden { display: none; }
-.watts-breakdown-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 11px; color: var(--app-textMuted); border-bottom: 1px solid rgba(255,255,255,0.03); }
-.watts-breakdown-row:last-child { border-bottom: none; }
-.watts-breakdown-row.total { font-weight: 700; color: var(--app-brand); font-size: 12px; padding-top: 8px; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.08); }
+/* ===== WATTS CARD (watt.png) ===== */
+.wc-card {
+    background: var(--dark-700);
+    border-radius: 14px;
+    padding: 14px;
+    border: 1px solid rgba(255,255,255,0.04);
+    transition: all 0.25s var(--ease-standard);
+    cursor: pointer;
+}
+.wc-card:hover { border-color: rgba(181,246,84,0.15); background: rgba(255,255,255,0.02); }
+.wc-card.wc-paid { border-color: rgba(16,185,129,0.2); }
+.wc-top {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px;
+}
+.wc-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.wc-info { min-width: 0; }
+.wc-name { font-size: 14px; font-weight: 600; color: var(--app-textBase); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wc-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 10px; padding: 2px 8px; border-radius: 5px;
+    font-weight: 600; white-space: nowrap;
+}
+.wc-badge-paid { background: rgba(16,185,129,0.15); color: #10B981; }
+.wc-badge-pending { background: rgba(249,115,22,0.15); color: #F97316; }
+.wc-badge-none { background: rgba(255,255,255,0.05); color: #6b7280; }
+.wc-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.wc-input {
+    width: 60px; text-align: center; padding: 6px 4px !important;
+    font-size: 13px !important; border-radius: 8px !important; font-weight: 700;
+    background: var(--dark-900); border: 1px solid rgba(255,255,255,0.08);
+    color: var(--app-textBase);
+}
+.wc-input:focus { border-color: var(--app-brand); outline: none; box-shadow: 0 0 0 2px rgba(181,246,84,0.15); }
+.wc-etb { font-size: 13px; font-weight: 700; color: var(--app-brand); white-space: nowrap; }
+.wc-bottom {
+    display: flex; align-items: center; justify-content: flex-end;
+    margin-top: 10px; gap: 6px;
+}
+.wc-btns { display: flex; align-items: center; gap: 6px; }
+.wc-btn-icon {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--dark-900); border: 1px solid rgba(255,255,255,0.06);
+    color: var(--app-textMuted); cursor: pointer;
+    transition: all 0.2s; font-size: 13px; border: none;
+}
+.wc-btn-icon:hover { color: var(--app-brand); background: rgba(181,246,84,0.1); }
 
-/* ===== RESIDENT CARD NEW DESIGN ===== */
-.resident-card-new { display: flex; align-items: flex-start; gap: 14px; padding: 16px; background: var(--dark-700); border-radius: 14px; border: 1px solid rgba(255,255,255,0.04); transition: all 0.25s; }
-.resident-card-new:hover { border-color: rgba(181,246,84,0.2); transform: translateY(-1px); }
-.rcn-left { flex-shrink: 0; }
-.rcn-body { flex: 1; min-width: 0; }
-.rcn-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.rcn-name { font-size: 14px; font-weight: 600; color: var(--app-textBase); }
-.rcn-details { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
-.rcn-tag { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.04); color: var(--app-textMuted); }
-.rcn-phone { font-size: 11px; color: var(--app-textMuted); }
-.rcn-members { font-size: 10px; color: var(--app-textDarker); margin-top: 2px; }
-.rcn-actions { display: flex; gap: 6px; flex-shrink: 0; margin-top: 4px; }
-.rcn-btn { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; transition: all 0.2s; }
-.rcn-btn.edit-btn { background: var(--dark-900); color: var(--app-textMuted); }
-.rcn-btn.edit-btn:hover { color: var(--app-brand); background: rgba(181,246,84,0.1); }
-.rcn-btn.delete-btn { background: var(--dark-900); color: var(--app-textMuted); }
-.rcn-btn.delete-btn:hover { color: #EF4444; background: rgba(239,68,68,0.1); }
+/* Watts EEP Breakdown */
+.wc-breakdown {
+    margin-top: 10px; padding: 10px 14px;
+    background: var(--dark-900); border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.04);
+}
+.wc-breakdown.hidden { display: none; }
+.wc-bd-row {
+    display: flex; justify-content: space-between;
+    padding: 4px 0; font-size: 11px; color: var(--app-textMuted);
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.wc-bd-row:last-child { border-bottom: none; }
+.wc-bd-total { color: var(--app-brand); font-weight: 700; font-size: 12px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.06); }
 
-/* ===== PAYMENT CARD NEW DESIGN ===== */
-.payment-card-new { background: var(--dark-700); border-radius: 14px; padding: 14px; border: 1px solid rgba(255,255,255,0.04); transition: all 0.25s; cursor: pointer; }
-.payment-card-new:active { transform: scale(0.99); }
-.payment-card-new:hover { border-color: rgba(181,246,84,0.15); }
-.pcn-row1 { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.pcn-left { flex-shrink: 0; }
-.pcn-body { flex: 1; min-width: 0; }
-.pcn-top { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
-.pcn-name { font-size: 13px; font-weight: 600; color: var(--app-textBase); }
-.pcn-info { display: flex; flex-wrap: wrap; gap: 6px; font-size: 10px; color: var(--app-textMuted); }
-.pcn-row2 { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.04); }
-.pcn-amount { font-size: 14px; font-weight: 700; color: var(--app-brand); }
-.pcn-action { flex-shrink: 0; display: flex; align-items: center; }
+/* ===== RESIDENT CARD (regster.png) ===== */
+.rc-card {
+    background: var(--dark-700);
+    border-radius: 14px;
+    padding: 14px;
+    border: 1px solid rgba(255,255,255,0.04);
+    transition: all 0.25s var(--ease-standard);
+    cursor: pointer;
+}
+.rc-card:hover { border-color: rgba(181,246,84,0.15); }
+.rc-card-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px;
+}
+.rc-card-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rc-card-info { min-width: 0; }
+.rc-card-name { font-size: 14px; font-weight: 600; color: var(--app-textBase); white-space: nowrap; }
+.rcn-avatar {
+    width: 46px; height: 46px; border-radius: 50%;
+    border: 2.5px solid var(--app-brand);
+    background: var(--dark-900);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; color: var(--app-brand);
+    flex-shrink: 0;
+    box-shadow: 0 0 10px rgba(158,255,47,0.1);
+    overflow: hidden;
+}
+.rcn-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.res-badge {
+    display: inline-block;
+    font-size: 9px; padding: 2px 8px; border-radius: 4px;
+    font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase;
+}
+.res-badge.paid { background: rgba(16,185,129,0.15); color: #10B981; border: 1px solid rgba(16,185,129,0.2); }
+.res-badge.pending { background: rgba(249,115,22,0.15); color: #F97316; border: 1px solid rgba(249,115,22,0.2); }
+.rc-card-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.rc-action-btn {
+    width: 34px; height: 34px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    border: none; cursor: pointer; transition: all 0.2s;
+    font-size: 15px;
+    background: var(--dark-900); color: var(--app-textMuted);
+}
+.rc-action-btn:hover { color: var(--app-brand); background: rgba(181,246,84,0.1); }
+.rc-card-tags {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    justify-content: flex-end;
+}
+.rc-tag {
+    font-size: 11px; padding: 3px 8px; border-radius: 6px;
+    background: rgba(255,255,255,0.04); color: var(--app-textMuted);
+    display: inline-flex; align-items: center; gap: 4px;
+    font-weight: 500;
+}
+.rc-tag-icon { font-size: 12px; }
+
+/* ===== PAYMENT CARD (payment.png) ===== */
+.pay-card {
+    background: var(--dark-700);
+    border-radius: 14px;
+    padding: 14px;
+    border: 1px solid rgba(255,255,255,0.04);
+    transition: all 0.25s var(--ease-standard);
+    cursor: pointer;
+}
+.pay-card:hover { border-color: rgba(181,246,84,0.15); }
+.pay-card-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 10px; gap: 8px;
+}
+.pay-card-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pay-card-info { min-width: 0; }
+.pay-card-name { font-size: 14px; font-weight: 600; color: var(--app-textBase); white-space: nowrap; }
+.pay-avatar {
+    width: 42px; height: 42px; border-radius: 50%;
+    border: 2.5px solid var(--app-brand);
+    background: var(--dark-900);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; color: var(--app-brand);
+    flex-shrink: 0;
+    box-shadow: 0 0 8px rgba(158,255,47,0.15);
+    overflow: hidden;
+}
+.pay-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.pay-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 9px; padding: 2px 8px; border-radius: 4px;
+    font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase;
+}
+.pay-badge-paid { background: rgba(16,185,129,0.15); color: #10B981; border: 1px solid rgba(16,185,129,0.2); }
+.pay-badge-pending { background: rgba(249,115,22,0.15); color: #F97316; border: 1px solid rgba(249,115,22,0.2); }
+.pay-badge-none { background: rgba(255,255,255,0.05); color: #6b7280; border: 1px solid rgba(255,255,255,0.08); }
+.pay-card-tags { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.pay-tag {
+    font-size: 10px; color: var(--app-textMuted); font-weight: 600;
+    display: flex; align-items: center; gap: 2px; white-space: nowrap;
+}
+.pay-card-bottom {
+    display: flex; align-items: center; justify-content: flex-end;
+    gap: 12px;
+}
+.pay-amount { font-size: 15px; font-weight: 700; color: var(--app-brand); }
+.pay-receipt-btn {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--dark-900); color: var(--app-textMuted);
+    border: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer; transition: all 0.2s; font-size: 16px;
+}
+.pay-receipt-btn:hover { color: var(--app-brand); border-color: var(--app-brand); }
+
+/* Keep old classes mapped to new ones for compatibility */
+.watts-card { display: none; }
+.resident-card-new { display: none; }
+.payment-card-new { display: none; }
 
 /* ===== PUNISHMENT BUTTONS ===== */
 .punish-btn { display: flex; align-items: center; gap: 4px; padding: 6px 14px; border-radius: 8px; border: none; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
@@ -1008,47 +1136,61 @@
 .detail-item.total .detail-value { font-size: 14px; color: var(--app-brand); }
 
         /* ===== MOBILE RESPONSIVE (Motion: Corporate, no jank) ===== */
-        @media (max-width: 640px) {
-            /* Reset any hover effects that don't make sense on touch */
-            .dash-card:hover, .glass-card:hover, .stat-card:hover { transform: none; }
+                @media (max-width: 640px) {
+            /* Reset hover on touch */
+            .dash-card:hover, .glass-card:hover, .stat-card:hover,
+            .rc-card:hover, .pay-card:hover, .wc-card:hover { transform: none !important; }
             
-            /* Dashboard - 2 column stat grid */
+            /* Dashboard cards */
             .dash-card { padding: 14px !important; }
             .dash-card .text-2xl { font-size: 1.1rem !important; }
-            .dash-card .text-[10px] { font-size: 9px !important; }
             
-            /* Modal - full width on phone */
-            .modal-card { margin: 12px !important; padding: 16px !important; max-height: 90vh !important; max-width: 100% !important; }
+            /* Modal */
+            .modal-card { margin: 8px !important; padding: 16px !important; max-height: 92vh !important; max-width: 100% !important; border-radius: 16px !important; }
             
-            /* Resident & Watts cards - tighter padding */
-            .resident-card, .watts-card, .resident-card-new, .payment-card-new { padding: 12px !important; }
-            .watts-row1 { margin-bottom: 8px !important; }
-            .watts-row2 { flex-wrap: wrap !important; gap: 6px !important; }
-            .watts-name { max-width: 110px !important; font-size: 12px !important; }
-            .watts-sub { font-size: 9px !important; }
-            .watts-etb-display { font-size: 11px !important; }
-            .watts-breakdown { font-size: 10px !important; padding: 8px !important; }
+            /* Ring avatars shrink */
+            .rcn-avatar, .wc-avatar, .pay-avatar { width: 38px !important; height: 38px !important; border-width: 2px !important; font-size: 12px !important; }
             
-            /* Payment cards */
-            .pcn-row1 { gap: 8px !important; }
-            .pcn-left .w-11, .pcn-left .h-11 { width: 2.5rem !important; height: 2.5rem !important; }
-            .pcn-name { font-size: 12px !important; }
-            .pcn-info { gap: 4px !important; font-size: 9px !important; }
-            .pcn-row2 { flex-wrap: wrap !important; }
+            /* Watts card */
+            .wc-card { padding: 12px !important; border-radius: 12px !important; }
+            .wc-top { flex-wrap: wrap; gap: 8px; }
+            .wc-right { gap: 8px; }
+            .wc-input { width: 52px !important; font-size: 12px !important; }
+            .wc-etb { font-size: 12px !important; }
+            .wc-btn-icon { width: 28px !important; height: 28px !important; }
+            .wc-breakdown { font-size: 10px !important; padding: 8px !important; }
+            .wc-name { font-size: 13px !important; }
+            .wc-bottom { margin-top: 8px; }
             
-            /* Filter chips - bigger touch targets */
+            /* Resident card */
+            .rc-card { padding: 12px !important; border-radius: 12px !important; }
+            .rc-card-top { margin-bottom: 8px; }
+            .rc-card-name { font-size: 13px !important; }
+            .rc-card-tags { gap: 4px !important; justify-content: flex-start; }
+            .rc-tag { font-size: 10px !important; padding: 2px 6px !important; }
+            
+            /* Payment card */
+            .pay-card { padding: 12px !important; border-radius: 12px !important; }
+            .pay-card-top { flex-wrap: wrap; gap: 6px; }
+            .pay-card-name { font-size: 13px !important; }
+            .pay-card-tags { font-size: 9px !important; gap: 6px !important; }
+            .pay-amount { font-size: 13px !important; }
+            .pay-receipt-btn { width: 28px !important; height: 28px !important; font-size: 14px !important; }
+            
+            /* Filter chips */
             .chip { padding: 8px 12px !important; font-size: 11px !important; }
             
-            /* Tables - horizontal scroll */
+            /* Tables */
             .dark-table { min-width: 500px !important; font-size: 11px !important; }
-            .dark-table th, .dark-table td { padding: 8px !important; font-size: 11px !important; }
             
             /* Detail modal */
             .detail-grid { grid-template-columns: 1fr; }
             .detail-item.full, .detail-item.total { grid-column: span 1; }
-        }
-        
-        /* Tablet adjustments */
+            
+            /* Mobile bottom nav */
+            .mobile-bottom-nav { padding: 6px 0 !important; }
+            .mobile-nav-item { padding: 4px 8px !important; }
+        }/* Tablet adjustments */
         @media (min-width: 641px) and (max-width: 1024px) {
             .main-content { padding: 24px; }
         }
@@ -1978,7 +2120,7 @@
     <!-- Hidden file input -->
     <input type="file" id="importFileInput" accept=".json" class="hidden">
 
-    <script src="app.js?v=8"></script>
+    <script src="app.js?v=9"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

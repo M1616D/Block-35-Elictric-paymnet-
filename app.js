@@ -433,8 +433,8 @@ async function logActivity(action, details = '') {
 function getReportData(month, year) {
     const monthKey = Utils.getMonthKey(year, month);
     const totalFloors = parseInt(AppState.settings.totalFloors || 8);
-    const housesPerFloor = parseInt(AppState.settings.housesPerFloor || 4);
-    const groundHouses = parseInt(AppState.settings.groundHouses || 4);
+    const housesPerFloor = parseInt(AppState.settings.housesPerFloor || 8);
+    const groundHouses = parseInt(AppState.settings.groundHouses || 10);
     const rate = parseFloat(AppState.settings.etbPerWatt) || 6.4592;
 
     const totalHouses = groundHouses + (totalFloors - 1) * housesPerFloor;
@@ -1141,39 +1141,37 @@ async function renderResidents() {
         const monthKey = Utils.getMonthKey(AppState.currentYear, AppState.currentMonth);
         const bill = AppState.bills.find(b => b.residentId === r.id && b.monthKey === monthKey);
         const payment = bill ? AppState.payments.find(p => p.billId === bill.id && p.monthKey === monthKey) : null;
-        const statusBadge = payment ? '<span class="badge badge-paid">Paid</span>' :
-                            bill ? '<span class="badge badge-pending">Pending</span>' :
-                            '<span class="badge badge-none">No Bill</span>';
+        const statusBadge = payment ? '<span class="res-badge paid">PAID</span>' :
+                            bill ? '<span class="res-badge pending">PENDING</span>' :
+                            '<span class="res-badge" style="background:rgba(255,255,255,0.05);color:#6b7280;border:1px solid rgba(255,255,255,0.08);">NO BILL</span>';
 
         const avatar = r.photo
-            ? `<img src="${r.photo}" class="w-12 h-12 rounded-xl object-cover" alt="">`
-            : `<div class="w-12 h-12 rounded-xl flex items-center justify-center text-sm font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
+            ? `<div class="rcn-avatar"><img src="${r.photo}" alt=""></div>`
+            : `<div class="rcn-avatar">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
 
         const roomLabel = r.roomType ? r.roomType.toUpperCase() : '';
-        const typeLabel = r.houseType === 'shared' ? '⚡Watt' : r.houseType === 'reader' ? '📟Reader' : '';
+        const typeLabel = r.houseType === 'shared' ? '⚡ Watt' : r.houseType === 'reader' ? '📟 Reader' : '';
         const floorName = r.floor === 0 ? 'Ground' : `${r.floor}${r.floor===1?'st':r.floor===2?'nd':r.floor===3?'rd':'th'}`;
 
-        return `<div class="resident-card-new">
-            <div class="rcn-left">
-                ${avatar}
-            </div>
-            <div class="rcn-body">
-                <div class="rcn-top">
-                    <p class="rcn-name">${r.firstName} ${r.lastName}</p>
-                    ${statusBadge}
+        return `<div class="rc-card" onclick="openDetailModal('${r.id}')">
+            <div class="rc-card-top">
+                <div class="rc-card-left">
+                    ${avatar}
+                    <div class="rc-card-info">
+                        <p class="rc-card-name">${r.firstName} ${r.lastName}</p>
+                        ${statusBadge}
+                    </div>
                 </div>
-                <div class="rcn-details">
-                    <span class="rcn-tag">🏠 ${r.houseNumber}</span>
-                    <span class="rcn-tag">📍 ${floorName}</span>
-                    ${roomLabel ? `<span class="rcn-tag">🛏 ${roomLabel}</span>` : ''}
-                    ${typeLabel ? `<span class="rcn-tag">${typeLabel}</span>` : ''}
+                <div class="rc-card-actions" onclick="event.stopPropagation()">
+                    <button onclick="openEditResidentModal('${r.id}')" class="rc-action-btn" title="Edit"><i class="ph ph-pencil-simple"></i></button>
+                    <button onclick="deleteResident('${r.id}')" class="rc-action-btn" title="Delete"><i class="ph ph-trash"></i></button>
                 </div>
-                ${r.phone ? `<p class="rcn-phone">📱 ${r.phone}</p>` : ''}
-                ${r.members > 1 ? `<p class="rcn-members">👥 ${r.members} members</p>` : ''}
             </div>
-            <div class="rcn-actions">
-                <button onclick="openEditResidentModal('${r.id}')" class="rcn-btn edit-btn" title="Edit"><i class="ph ph-pencil-simple"></i></button>
-                <button onclick="deleteResident('${r.id}')" class="rcn-btn delete-btn" title="Delete"><i class="ph ph-trash"></i></button>
+            <div class="rc-card-tags">
+                <span class="rc-tag"><span class="rc-tag-icon" style="color:#f97316;">🏠</span> ${r.houseNumber}</span>
+                <span class="rc-tag"><span class="rc-tag-icon" style="color:#ec4899;">📍</span> ${floorName}</span>
+                ${roomLabel ? `<span class="rc-tag"><span class="rc-tag-icon" style="color:#3b82f6;">🛏</span> ${roomLabel}</span>` : ''}
+                ${typeLabel ? `<span class="rc-tag"><span class="rc-tag-icon" style="color:#f97316;">⚡</span> ${r.houseType === 'reader' ? 'Reader' : 'Watt'}</span>` : ''}
             </div>
         </div>`;
     }).join('');
@@ -1205,7 +1203,7 @@ async function renderBills() {
         return;
     }
 
-    list.innerHTML = filtered.map(r => {
+        list.innerHTML = filtered.map(r => {
         const bill = AppState.bills.find(b => b.residentId === r.id && b.monthKey === monthKey);
         const payment = bill ? AppState.payments.find(p => p.billId === bill.id && p.monthKey === monthKey) : null;
         const watts = bill ? bill.wattsUsed : '';
@@ -1220,7 +1218,6 @@ async function renderBills() {
             eepCalc = calculateEEPBill(watts);
             etb = eepCalc.totalAmount;
         } else if (bill) {
-            // Recalculate from stored watts (may be from old calculation without fees)
             if (bill.wattsUsed > 0 && r.houseType !== 'reader') {
                 eepCalc = calculateEEPBill(bill.wattsUsed);
                 etb = eepCalc.totalAmount;
@@ -1229,59 +1226,59 @@ async function renderBills() {
             }
         }
 
+        const initials = Utils.getInitials(r.firstName, r.lastName);
         const avatar = r.photo
-            ? `<img src="${r.photo}" class="w-10 h-10 rounded-full object-cover" alt="">`
-            : `<div class="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
+            ? `<div class="wc-avatar"><img src="${r.photo}" alt=""></div>`
+            : `<div class="wc-avatar">${initials}</div>`;
 
-        const roomLabel = r.roomType ? `· ${r.roomType.toUpperCase()}` : '';
-        const typeIcon = r.houseType === 'reader' ? '📟' : '⚡';
-
-        // Status badge
         const isPaid = !!payment;
         const statusBadge = isPaid
-            ? '<span class="watts-status-badge paid">✓ Paid</span>'
-            : (bill ? '<span class="watts-status-badge pending">⏳ Pending</span>' : '<span class="watts-status-badge none">—</span>');
+            ? '<span class="wc-badge wc-badge-paid"><i class="ph ph-check"></i> Paid</span>'
+            : (bill ? '<span class="wc-badge wc-badge-pending"><i class="ph ph-clock"></i> Pending</span>' : '<span class="wc-badge wc-badge-none">\u2014</span>');
 
-        // EEP breakdown dropdown (for watt counter only, when watts > 0)
+        // EEP breakdown dropdown
         let breakdownHTML = '';
         if (eepCalc && watts > 0) {
             breakdownHTML = `
-            <div class="watts-breakdown hidden" id="breakdown-${r.id}">
-                <div class="watts-breakdown-row"><span>Energy Charge</span><span>${eepCalc.kWh.toFixed(2)} kWh × ${rate}</span><span>${Utils.formatCurrency(eepCalc.energyCharge)} ETB</span></div>
-                <div class="watts-breakdown-row"><span>Service Charge</span><span>Fixed</span><span>${Utils.formatCurrency(eepCalc.serviceCharge)} ETB</span></div>
-                <div class="watts-breakdown-row"><span>Regulatory Fee (0.5%)</span><span>—</span><span>${Utils.formatCurrency(eepCalc.regulatoryFee)} ETB</span></div>
-                <div class="watts-breakdown-row"><span>VAT (15%)</span><span>—</span><span>${Utils.formatCurrency(eepCalc.tax)} ETB</span></div>
-                <div class="watts-breakdown-row total"><span>Total</span><span></span><span>${Utils.formatCurrency(eepCalc.totalAmount)} ETB</span></div>
+            <div class="wc-breakdown hidden" id="breakdown-${r.id}">
+                <div class="wc-bd-row"><span>Energy Charge</span><span>${eepCalc.kWh.toFixed(2)} kWh \u00d7 ${rate}</span><span>${Utils.formatCurrency(eepCalc.energyCharge)} ETB</span></div>
+                <div class="wc-bd-row"><span>Service Charge</span><span>Fixed</span><span>${Utils.formatCurrency(eepCalc.serviceCharge)} ETB</span></div>
+                <div class="wc-bd-row"><span>Regulatory Fee (0.5%)</span><span>\u2014</span><span>${Utils.formatCurrency(eepCalc.regulatoryFee)} ETB</span></div>
+                <div class="wc-bd-row"><span>VAT (15%)</span><span>\u2014</span><span>${Utils.formatCurrency(eepCalc.tax)} ETB</span></div>
+                <div class="wc-bd-row wc-bd-total"><span>Total</span><span></span><span>${Utils.formatCurrency(eepCalc.totalAmount)} ETB</span></div>
             </div>`;
         } else if (r.houseType === 'reader' && fixedAmt > 0) {
             breakdownHTML = `
-            <div class="watts-breakdown hidden" id="breakdown-${r.id}">
-                <div class="watts-breakdown-row total"><span>Own Reader Fixed Amount</span><span></span><span>${Utils.formatCurrency(fixedAmt)} ETB</span></div>
+            <div class="wc-breakdown hidden" id="breakdown-${r.id}">
+                <div class="wc-bd-row wc-bd-total"><span>Own Reader Fixed Amount</span><span></span><span>${Utils.formatCurrency(fixedAmt)} ETB</span></div>
             </div>`;
         }
 
-        // Action button
+        // Action buttons (bottom row)
         let actionHTML = '';
         if (isPaid) {
-            actionHTML = `<button onclick="openReceiptViewer('${payment.id}')" class="watts-action-btn paid-btn" title="View Receipt">📄</button>`;
-        } else if (bill) {
-            actionHTML = `<button onclick="quickPayResident('${r.id}', '${bill.id}')" class="watts-action-btn pay-btn" title="Mark Paid">💰</button>`;
+            actionHTML = `<button onclick="event.stopPropagation();openReceiptViewer('${payment.id}')" class="wc-btn-icon" title="Receipt"><i class="ph ph-receipt"></i></button>`;
         }
+        const toggleBtn = (eepCalc && watts > 0) ? `<button class="wc-btn-icon" onclick="event.stopPropagation();toggleBreakdown('${r.id}')" title="Show breakdown"><i class="ph ph-caret-down"></i></button>` : '';
 
-        return `<div class="watts-card ${isPaid ? 'watts-card-paid' : ''}">
-            <div class="watts-card-top">
-                <div class="flex items-center gap-3 flex-1 min-w-0">
+        return `<div class="wc-card ${isPaid ? 'wc-paid' : ''}" onclick="openDetailModal('${r.id}')">
+            <div class="wc-top">
+                <div class="wc-left">
                     ${avatar}
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold text-app-textBase truncate">${r.firstName} ${r.lastName}</p>
-                        <p class="text-[11px] text-app-textMuted">${typeIcon} ${r.houseNumber} ${roomLabel}</p>
+                    <div class="wc-info">
+                        <p class="wc-name">${r.firstName} ${r.lastName}</p>
+                        ${statusBadge}
                     </div>
-                    ${statusBadge}
                 </div>
-                <div class="flex items-center gap-2">
-                    ${r.houseType !== 'reader' ? `<input type="number" class="dark-input text-xs w-20 text-center watts-input" data-resident-id="${r.id}" min="0" step="0.01" value="${watts}" placeholder="kWh">` : `<span class="text-[11px] text-app-textMuted px-2">Fixed</span>`}
-                    <span class="watts-etb-display" data-resident-id="${r.id}">${Utils.formatCurrency(etb)} ETB</span>
-                    ${eepCalc && watts > 0 ? `<button class="watts-toggle-btn" onclick="toggleBreakdown('${r.id}')" title="Show breakdown">▾</button>` : ''}
+                <div class="wc-right">
+                    ${r.houseType !== 'reader' ? `<input type="number" class="wc-input" data-resident-id="${r.id}" min="0" step="0.01" value="${watts}" placeholder="kWh" onclick="event.stopPropagation()">` : ''}
+                    <span class="wc-etb" data-resident-id="${r.id}">${Utils.formatCurrency(etb)} ETB</span>
+                </div>
+            </div>
+            <div class="wc-bottom">
+                <div></div>
+                <div class="wc-btns">
+                    ${toggleBtn}
                     ${actionHTML}
                 </div>
             </div>
@@ -1289,36 +1286,36 @@ async function renderBills() {
         </div>`;
     }).join('');
 
-    // Wire up live ETB calculation
-    list.querySelectorAll('.watts-input').forEach(input => {
-        input.addEventListener('input', () => {
+    // Add event listeners to watt inputs
+    const wattInputs = list.querySelectorAll(".wc-input");
+    wattInputs.forEach(input => {
+        input.addEventListener("input", () => {
             const val = parseFloat(input.value) || 0;
-            const etbEl = list.querySelector(`.watts-etb-display[data-resident-id="${input.dataset.residentId}"]`);
-            const breakdownEl = document.getElementById('breakdown-' + input.dataset.residentId);
+            const etbEl = list.querySelector(`.wc-etb[data-resident-id="${input.dataset.residentId}"]`);
+            const breakdownEl = document.getElementById("breakdown-" + input.dataset.residentId);
             if (!etbEl) return;
             const rid = input.dataset.residentId;
             const rr = AppState.residents.find(r => r.id === rid);
-            if (rr && rr.houseType === 'reader') {
+            if (rr && rr.houseType === "reader") {
                 const fixed = parseFloat(AppState.settings.fixedAmount) || 0;
-                etbEl.textContent = `${Utils.formatCurrency(fixed)} ETB`;
+                etbEl.textContent = Utils.formatCurrency(fixed) + " ETB";
             } else if (val > 0) {
                 const calc = calculateEEPBill(val);
-                etbEl.textContent = `${Utils.formatCurrency(calc.totalAmount)} ETB`;
-                // Update breakdown
+                etbEl.textContent = Utils.formatCurrency(calc.totalAmount) + " ETB";
                 if (breakdownEl) {
-                    const rows = breakdownEl.querySelectorAll('.watts-breakdown-row');
+                    const rows = breakdownEl.querySelectorAll(".wc-bd-row");
                     if (rows.length >= 5) {
-                        rows[0].querySelector('span:last-child').textContent = `${Utils.formatCurrency(calc.energyCharge)} ETB`;
-                        rows[1].querySelector('span:last-child').textContent = `${Utils.formatCurrency(calc.serviceCharge)} ETB`;
-                        rows[2].querySelector('span:last-child').textContent = `${Utils.formatCurrency(calc.regulatoryFee)} ETB`;
-                        rows[3].querySelector('span:last-child').textContent = `${Utils.formatCurrency(calc.tax)} ETB`;
-                        rows[4].querySelector('span:last-child').textContent = `${Utils.formatCurrency(calc.totalAmount)} ETB`;
+                        rows[0].querySelector("span:last-child").textContent = Utils.formatCurrency(calc.energyCharge) + " ETB";
+                        rows[1].querySelector("span:last-child").textContent = Utils.formatCurrency(calc.serviceCharge) + " ETB";
+                        rows[2].querySelector("span:last-child").textContent = Utils.formatCurrency(calc.regulatoryFee) + " ETB";
+                        rows[3].querySelector("span:last-child").textContent = Utils.formatCurrency(calc.tax) + " ETB";
+                        rows[4].querySelector("span:last-child").textContent = Utils.formatCurrency(calc.totalAmount) + " ETB";
                     }
-                    breakdownEl.classList.remove('hidden');
+                    breakdownEl.classList.remove("hidden");
                 }
             } else {
-                etbEl.textContent = `${Utils.formatCurrency(0)} ETB`;
-                if (breakdownEl) breakdownEl.classList.add('hidden');
+                etbEl.textContent = Utils.formatCurrency(0) + " ETB";
+                if (breakdownEl) breakdownEl.classList.add("hidden");
             }
         });
     });
@@ -1368,60 +1365,48 @@ async function renderPayments() {
         return;
     }
 
-    list.innerHTML = items.map(item => {
+        list.innerHTML = items.map(item => {
         const r = item.resident;
-        const statusBadge = item.status === 'paid' ? '<span class="badge badge-paid">✓ Paid</span>' :
-                            item.status === 'pending' ? '<span class="badge badge-pending">⏳ Pending</span>' :
-                            '<span class="badge badge-none">No Bill</span>';
+        const isPaid = item.status === 'paid';
+        const statusBadge = isPaid ? '<span class="pay-badge pay-badge-paid"><i class="ph ph-check"></i> PAID</span>' :
+                            item.status === 'pending' ? '<span class="pay-badge pay-badge-pending">PENDING</span>' :
+                            '<span class="pay-badge pay-badge-none">NO BILL</span>';
 
+        const initials = Utils.getInitials(r.firstName, r.lastName);
         const avatar = r.photo
-            ? `<img src="${r.photo}" class="w-11 h-11 rounded-xl object-cover" alt="">`
-            : `<div class="w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold" style="background:var(--dark-700);color:var(--app-brand);">${Utils.getInitials(r.firstName, r.lastName)}</div>`;
+            ? `<div class="pay-avatar"><img src="${r.photo}" alt=""></div>`
+            : `<div class="pay-avatar">${initials}</div>`;
 
-        // Calculate actual EEP total
         let displayETB = item.bill?.etbAmount || 0;
         if (item.bill && item.bill.wattsUsed > 0 && r.houseType !== 'reader') {
             displayETB = calculateEEPBill(item.bill.wattsUsed).totalAmount;
         }
 
-        let actionBtn = '';
-        if (item.status === 'pending' && item.bill) {
-            actionBtn = `<button onclick="quickPayResident('${r.id}', '${item.bill.id}')" class="pay-action-btn">
-                <i class="ph ph-currency-dollar"></i>
-                <span>Pay Now</span>
-            </button>`;
-        } else if (item.status === 'paid') {
-            actionBtn = `<div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-emerald-400">${Utils.formatCurrency(item.payment.amountPaid)} ETB</span>
-                <button onclick="openReceiptViewer('${item.payment.id}')" class="receipt-action-btn" title="View Receipt"><i class="ph ph-receipt"></i></button>
-            </div>`;
-        } else {
-            actionBtn = `<span class="text-[10px] text-app-textDarker">—</span>`;
-        }
-
         const floorName = r.floor === 0 ? 'G' : r.floor;
         const roomLabel = r.roomType ? r.roomType.toUpperCase() : '';
-        const typeLabel = r.houseType === 'shared' ? '⚡Watt' : '📟Reader';
 
-        return `<div class="payment-card-new">
-            <div class="pcn-left">
-                ${avatar}
-            </div>
-            <div class="pcn-body">
-                <div class="pcn-top">
-                    <p class="pcn-name">${r.firstName} ${r.lastName}</p>
-                    ${statusBadge}
+        let receiptBtn = '';
+        if (isPaid) {
+            receiptBtn = `<button onclick="event.stopPropagation();openReceiptViewer('${item.payment.id}')" class="pay-receipt-btn" title="Receipt"><i class="ph ph-receipt"></i></button>`;
+        }
+
+        return `<div class="pay-card ${isPaid ? 'pay-card-paid' : ''}" onclick="openDetailModal('${r.id}')">
+            <div class="pay-card-top">
+                <div class="pay-card-left">
+                    ${avatar}
+                    <div class="pay-card-info">
+                        <p class="pay-card-name">${r.firstName} ${r.lastName}</p>
+                        ${statusBadge}
+                    </div>
                 </div>
-                <div class="pcn-info">
-                    <span>🏠 ${r.houseNumber}</span>
-                    <span>📍 ${floorName}</span>
-                    <span>${typeLabel}</span>
-                    ${roomLabel ? `<span>🛏 ${roomLabel}</span>` : ''}
+                <div class="pay-card-tags">
+                    <span class="pay-tag"><span style="color:#f97316;">\u26a1</span> ${r.houseNumber}</span>
+                    <span class="pay-tag"><b style="color:#fff;">${floorName}</b> ${roomLabel}</span>
                 </div>
-                <p class="pcn-amount">${item.bill ? `${Utils.formatCurrency(displayETB)} ETB` : 'No bill'}</p>
             </div>
-            <div class="pcn-action">
-                ${actionBtn}
+            <div class="pay-card-bottom">
+                <span class="pay-amount">${Utils.formatCurrency(displayETB)} ETB</span>
+                ${receiptBtn}
             </div>
         </div>`;
     }).join('');
@@ -1519,8 +1504,8 @@ function renderSettings() {
     if (el('settingEtbPerWatt')) el('settingEtbPerWatt').value = s.etbPerWatt || 6.4592;
     if (el('settingFixedAmount')) el('settingFixedAmount').value = s.fixedAmount || 0;
     if (el('settingTotalFloors')) el('settingTotalFloors').value = s.totalFloors || 8;
-    if (el('settingHousesPerFloor')) el('settingHousesPerFloor').value = s.housesPerFloor || 4;
-    if (el('settingGroundHouses')) el('settingGroundHouses').value = s.groundHouses || 4;
+    if (el('settingHousesPerFloor')) el('settingHousesPerFloor').value = s.housesPerFloor || 8;
+    if (el('settingGroundHouses')) el('settingGroundHouses').value = s.groundHouses || 10;
     if (el('settingCurrentUsername')) el('settingCurrentUsername').value = AppState.credentials.username || 'admin';
     if (el('settingLockTimeout')) el('settingLockTimeout').value = AppState.lockTimeout || 5;
 }
@@ -1702,7 +1687,7 @@ async function saveAllWatts() {
     const monthKey = Utils.getMonthKey(year, month);
     const rate = parseFloat(AppState.settings.etbPerWatt) || 6.4592;
 
-    const inputs = document.querySelectorAll('.watts-input');
+    const inputs = document.querySelectorAll('.wc-input');
     let saved = 0;
     for (const input of inputs) {
         const residentId = input.dataset.residentId;
