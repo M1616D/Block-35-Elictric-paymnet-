@@ -1773,7 +1773,7 @@ async function deleteResident(id) {
 // ==================== PAYMENT MODAL ====================
 let _payState = { residentId: null, billId: null, amount: 0, method: 'cash', transferMethod: 'telebirr', customBank: '' };
 
-function openPayModal(residentId, billId) {
+async function openPayModal(residentId, billId) {
     event && event.stopPropagation();
     const r = AppState.residents.find(x => x.id === residentId);
     if (!r) return;
@@ -1798,7 +1798,7 @@ function openPayModal(residentId, billId) {
             createdAt: new Date().toISOString()
         };
         // Save bill to DB
-        db.save('bills', bill);
+        await db.put('bills', bill);
         AppState.bills.push(bill);
     }
     if (!bill) return;
