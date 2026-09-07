@@ -113,52 +113,134 @@
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
         }
 
-        /* ===== LEFT SIDEBAR ===== */
+        /* ===== SIDEBAR - Purple Glass Design ===== */
         .left-sidebar {
-            width: 240px;
-            min-width: 240px;
-            background: var(--dark-800);
+            width: 260px;
+            min-width: 260px;
+            background: #35364F;
             display: flex;
             flex-direction: column;
             padding: 32px 0;
-            border-right: 1px solid rgba(255,255,255,0.06);
-            border-radius: 0;
+            border: none;
+            border-radius: 0 40px 40px 0;
             z-index: 20;
             flex-shrink: 0;
+            box-shadow: 10px 0 40px rgba(0,0,0,0.3);
+            overflow: visible;
+            position: relative;
         }
         [data-theme="light"] .left-sidebar {
-            border-right: 1px solid var(--app-border);
+            background: #35364F;
         }
-        .left-sidebar nav { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 0 16px; }
+        .left-sidebar nav {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 0;
+        }
         .left-sidebar .sidebar-link {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 12px 16px;
-            border-radius: 0.5rem;
-            color: var(--app-text-muted);
-            font-size: 13px;
+            gap: 14px;
+            padding: 14px 24px 14px 28px;
+            margin-left: 0;
+            color: #9696AA;
+            font-size: 14px;
             font-weight: 500;
             text-decoration: none;
-            transition: all 0.2s;
+            transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
             cursor: pointer;
+            position: relative;
+            margin-right: -40px;
+            border-radius: 0 32px 32px 0;
         }
         .left-sidebar .sidebar-link:hover {
-            color: var(--app-text);
-            background: var(--dark-700);
+            color: #ffffff;
+            background: rgba(255,255,255,0.05);
         }
         .left-sidebar .sidebar-link.active {
-            color: var(--dark-900);
-            background: var(--app-brand);
+            color: #ffffff;
+            background: #222338;
             font-weight: 600;
-            box-shadow: 0 0 15px rgba(158,255,47,0.5);
+            z-index: 2;
+            border-radius: 0 32px 32px 0;
         }
-        [data-theme="light"] .left-sidebar .sidebar-link.active {
-            box-shadow: 0 0 15px rgba(34,168,78,0.3);
+        .left-sidebar .sidebar-link.active::before {
+            content: '';
+            position: absolute;
+            left: -1px;
+            top: -16px;
+            width: 16px;
+            height: 16px;
+            background: #222338;
+            border-radius: 0 0 16px 0;
+            z-index: 1;
         }
-        .left-sidebar .sidebar-link i { font-size: 16px; width: 20px; text-align: center; }
+        .left-sidebar .sidebar-link.active::after {
+            content: '';
+            position: absolute;
+            left: -1px;
+            bottom: -16px;
+            width: 16px;
+            height: 16px;
+            background: #222338;
+            border-radius: 0 16px 0 0;
+            z-index: 1;
+        }
+        .left-sidebar .sidebar-link.active i {
+            color: #ffffff;
+        }
+        .left-sidebar .sidebar-link i { font-size: 18px; width: 22px; text-align: center; }
+        .left-sidebar .sidebar-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 28px;
+            margin-bottom: 40px;
+            cursor: pointer;
+        }
+        .sidebar-logo-icon {
+            position: relative;
+            width: 28px;
+            height: 28px;
+            flex-shrink: 0;
+        }
+        .sidebar-logo-icon .logo-main {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #5d55e8;
+        }
+        .sidebar-logo-icon .logo-overlap {
+            position: absolute;
+            bottom: -4px;
+            right: -4px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ff4757;
+            border: 3px solid #35364F;
+        }
+        .sidebar-logout-btn {
+            margin: 16px 20px 12px;
+            padding: 12px;
+            border-radius: 18px;
+            background: #ffffff;
+            color: #5d55e8;
+            font-weight: 700;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+        .sidebar-logout-btn:hover { background: #f0f0f0; transform: translateY(-1px); }
 
-        /* ===== MAIN CONTENT ===== */
+        /* ===== MAIN CONTENT ===== *//* ===== MAIN CONTENT ===== */
         .main-content {
             flex: 1;
             padding: 32px;
@@ -873,10 +955,10 @@
                 display: flex;
                 position: fixed;
                 top: 0; left: 0; bottom: 0;
-                width: 260px;
+                width: 280px;
                 z-index: 2000;
                 box-shadow: 10px 0 40px rgba(0,0,0,0.6);
-                border-radius: 0;
+                border-radius: 0 40px 40px 0;
                 animation: slideInLeft 0.3s ease;
             }
             @keyframes slideInLeft { from { transform: translateX(-100%); } to { transform: translateX(0); } }
@@ -1348,52 +1430,59 @@
 
             <!-- ===== LEFT SIDEBAR ===== -->
             <aside id="desktopSidebar" class="left-sidebar">
-                <div>
-                    <!-- Logo -->
-                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold mx-auto" style="background:var(--app-brand-dark); color:var(--app-brand); box-shadow: 0 0 15px rgba(158,255,47,0.3);">
-                        ⚡
+                <!-- Logo -->
+                <div class="sidebar-logo" onclick="navigateTo('dashboard')">
+                    <div class="sidebar-logo-icon">
+                        <div class="logo-main"></div>
+                        <div class="logo-overlap"></div>
                     </div>
-                    <!-- Nav -->
-                    <nav>
-                        <a href="#" class="sidebar-link active" data-page="dashboard">
-                            <i class="ph-fill ph-squares-four"></i>
-                            <span data-i18n="nav_dashboard">Dashboard</span>
-                        </a>
-                        <a href="#" class="sidebar-link" data-page="residents">
-                            <i class="ph-fill ph-users-three"></i>
-                            <span data-i18n="nav_residents">Residents</span>
-                        </a>
-                        <a href="#" class="sidebar-link" data-page="bills">
-                            <i class="ph-fill ph-lightning"></i>
-                            <span data-i18n="nav_watts">Enter Watts</span>
-                        </a>
-                        <a href="#" class="sidebar-link" data-page="payments">
-                            <i class="ph-fill ph-currency-dollar"></i>
-                            <span data-i18n="nav_payments">Payments</span>
-                        </a>
-                        <a href="#" class="sidebar-link" data-page="reports">
-                            <i class="ph-fill ph-chart-line-up"></i>
-                            <span data-i18n="nav_reports">Reports</span>
-                        </a>
-                        <a href="#" class="sidebar-link" data-page="cover">
-                            <i class="ph-fill ph-lightning"></i>
-                            <span>Cover Payment</span>
-                        </a>
-                        <a href="#" class="sidebar-link" data-page="sync">
-                            <i class="ph-fill ph-cloud-arrow-up"></i>
-                            <span data-i18n="nav_sync">Cloud Sync</span>
-                        </a>
-                    </nav>
+                    <span class="text-white font-bold text-xl tracking-wide">Block 35</span>
                 </div>
-                <!-- Bottom: Settings -->
-                <a href="#" class="sidebar-link" data-page="punish">
+                <!-- Nav -->
+                <nav>
+                    <a href="#" class="sidebar-link active" data-page="dashboard" onclick="event.preventDefault();navigateTo('dashboard')">
+                        <i class="ph-fill ph-squares-four"></i>
+                        <span data-i18n="nav_dashboard">Dashboard</span>
+                    </a>
+                    <a href="#" class="sidebar-link" data-page="residents" onclick="event.preventDefault();navigateTo('residents')">
+                        <i class="ph-fill ph-users-three"></i>
+                        <span data-i18n="nav_residents">Residents</span>
+                    </a>
+                    <a href="#" class="sidebar-link" data-page="bills" onclick="event.preventDefault();navigateTo('bills')">
+                        <i class="ph-fill ph-lightning"></i>
+                        <span data-i18n="nav_watts">Enter Watts</span>
+                    </a>
+                    <a href="#" class="sidebar-link" data-page="payments" onclick="event.preventDefault();navigateTo('payments')">
+                        <i class="ph-fill ph-currency-dollar"></i>
+                        <span data-i18n="nav_payments">Payments</span>
+                    </a>
+                    <a href="#" class="sidebar-link" data-page="reports" onclick="event.preventDefault();navigateTo('reports')">
+                        <i class="ph-fill ph-chart-line-up"></i>
+                        <span data-i18n="nav_reports">Reports</span>
+                    </a>
+                    <a href="#" class="sidebar-link" data-page="cover" onclick="event.preventDefault();navigateTo('cover')">
+                        <i class="ph-fill ph-lightning"></i>
+                        <span>Cover Payment</span>
+                    </a>
+                    <a href="#" class="sidebar-link" data-page="sync" onclick="event.preventDefault();navigateTo('sync')">
+                        <i class="ph-fill ph-cloud-arrow-up"></i>
+                        <span data-i18n="nav_sync">Cloud Sync</span>
+                    </a>
+                </nav>
+                <!-- Bottom Section -->
+                <a href="#" class="sidebar-link" data-page="punish" onclick="event.preventDefault();navigateTo('punish')">
                     <i class="ph-fill ph-warning"></i>
                     <span data-i18n="nav_punish">Punishment</span>
                 </a>
-                <a href="#" class="sidebar-link" data-page="settings">
+                <a href="#" class="sidebar-link" data-page="settings" onclick="event.preventDefault();navigateTo('settings')">
                     <i class="ph-fill ph-gear-six"></i>
                     <span data-i18n="nav_settings">Settings</span>
                 </a>
+                <!-- Logout Button -->
+                <button class="sidebar-logout-btn" onclick="handleLogout()">
+                    <i class="ph-fill ph-sign-out"></i>
+                    Logout
+                </button>
             </aside>
 
             <!-- Sidebar Overlay (mobile) -->
@@ -2150,7 +2239,7 @@
     <!-- Hidden file input -->
     <input type="file" id="importFileInput" accept=".json" class="hidden">
 
-    <script src="app.js?v=13"></script>
+    <script src="app.js?v=14"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -2158,5 +2247,68 @@
             });
         }
     </script>
+
+    <!-- ===== PAYMENT METHOD MODAL ===== -->
+    <div id="payMethodModal" class="modal-overlay hidden" style="z-index:9999;">
+        <div class="modal-card" style="max-width:400px;width:90%;margin:auto;margin-top:15vh;background:var(--dark-800);border-radius:20px;padding:24px;border:1px solid rgba(255,255,255,0.08);">
+            <div class="flex items-center justify-between mb-5">
+                <h3 class="text-lg font-bold text-app-textBase">Mark as Paid</h3>
+                <button onclick="closePayModal()" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors">
+                    <i class="ph ph-x text-app-textMuted"></i>
+                </button>
+            </div>
+            
+            <!-- Resident Info -->
+            <div id="payModalResidentInfo" class="mb-5 p-3 rounded-xl" style="background:var(--dark-700);"></div>
+            
+            <!-- Amount Display -->
+            <div class="text-center mb-5 p-4 rounded-xl" style="background:var(--dark-700);">
+                <p class="text-xs text-app-textMuted mb-1">Amount Due</p>
+                <p id="payModalAmount" class="text-2xl font-bold" style="color:var(--app-brand);">0.00 ETB</p>
+            </div>
+
+            <!-- Payment Method Selection -->
+            <p class="text-xs text-app-textMuted mb-3 font-medium">Payment Method</p>
+            <div class="grid grid-cols-2 gap-3 mb-5">
+                <button onclick="selectPayMethod('cash')" id="pmCashBtn" class="pay-method-btn active" style="border:2px solid var(--app-brand);background:rgba(158,255,47,0.1);border-radius:12px;padding:14px 12px;text-align:center;cursor:pointer;transition:all 0.2s;">
+                    <div style="font-size:24px;margin-bottom:4px;">💵</div>
+                    <div class="text-sm font-semibold text-app-textBase">Cash</div>
+                </button>
+                <button onclick="selectPayMethod('transfer')" id="pmTransferBtn" class="pay-method-btn" style="border:2px solid transparent;background:var(--dark-700);border-radius:12px;padding:14px 12px;text-align:center;cursor:pointer;transition:all 0.2s;">
+                    <div style="font-size:24px;margin-bottom:4px;">🏦</div>
+                    <div class="text-sm font-semibold text-app-textBase">Transfer</div>
+                </button>
+            </div>
+
+            <!-- Transfer Sub-Options (hidden by default) -->
+            <div id="transferOptions" class="hidden mb-5">
+                <p class="text-xs text-app-textMuted mb-3 font-medium">Transfer Method</p>
+                <div class="flex flex-col gap-2">
+                    <button onclick="selectTransferMethod('telebirr')" id="tmTelebirr" class="tm-btn active" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;border:2px solid var(--app-brand);background:rgba(158,255,47,0.1);cursor:pointer;transition:all 0.2s;">
+                        <span style="font-size:20px;">📱</span>
+                        <span class="text-sm font-semibold text-app-textBase">Telebirr</span>
+                    </button>
+                    <button onclick="selectTransferMethod('cbe')" id="tmCbe" class="tm-btn" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;border:2px solid transparent;background:var(--dark-700);cursor:pointer;transition:all 0.2s;">
+                        <span style="font-size:20px;">🏛️</span>
+                        <span class="text-sm font-semibold text-app-textBase">CBE (Commercial Bank of Ethiopia)</span>
+                    </button>
+                    <button onclick="selectTransferMethod('other')" id="tmOther" class="tm-btn" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:12px;border:2px solid transparent;background:var(--dark-700);cursor:pointer;transition:all 0.2s;">
+                        <span style="font-size:20px;">💳</span>
+                        <span class="text-sm font-semibold text-app-textBase">Other Bank</span>
+                    </button>
+                </div>
+                <!-- Custom bank name field -->
+                <div id="customBankField" class="hidden mt-3">
+                    <input type="text" id="customBankName" placeholder="Enter bank name..." class="w-full px-4 py-3 rounded-xl text-sm bg-dark-900 text-app-textBase border border-app-border focus:border-app-brand focus:outline-none" style="background:var(--dark-900);">
+                </div>
+            </div>
+
+            <!-- Confirm Button -->
+            <button onclick="confirmPayment()" class="w-full py-3.5 rounded-xl font-bold text-sm transition-all" style="background:var(--app-brand);color:var(--dark-900);box-shadow:0 0 20px rgba(158,255,47,0.3);">
+                <i class="ph-fill ph-check-circle mr-2"></i> Confirm Payment
+            </button>
+        </div>
+    </div>
+    
 </body>
 </html>

@@ -1310,6 +1310,10 @@ async function renderBills() {
         let actionHTML = '';
         if (isPaid) {
             actionHTML = `<button onclick="event.stopPropagation();openReceiptViewer('${payment.id}')" class="wc-btn-icon" title="Receipt"><i class="ph ph-receipt"></i></button>`;
+        } else if (bill && bill.wattsUsed > 0) {
+            actionHTML = `<button onclick="event.stopPropagation();openPayModal('${r.id}','${bill.id}')" class="wc-btn-pay" title="Mark Paid" style="background:var(--app-brand);color:var(--dark-900);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;gap:4px;white-space:nowrap;"><i class="ph ph-check-circle"></i> Pay</button>`;
+        } else if (bill && r.houseType === 'reader') {
+            actionHTML = `<button onclick="event.stopPropagation();openPayModal('${r.id}','${bill.id}')" class="wc-btn-pay" title="Mark Paid" style="background:var(--app-brand);color:var(--dark-900);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;gap:4px;white-space:nowrap;"><i class="ph ph-check-circle"></i> Pay</button>`;
         }
         const toggleBtn = (eepCalc && watts > 0) ? `<button class="wc-btn-icon" onclick="event.stopPropagation();toggleBreakdown('${r.id}')" title="Show breakdown"><i class="ph ph-caret-down"></i></button>` : '';
 
@@ -1440,6 +1444,8 @@ async function renderPayments() {
         let receiptBtn = '';
         if (isPaid) {
             receiptBtn = `<button onclick="event.stopPropagation();openReceiptViewer('${item.payment.id}')" class="pay-receipt-btn" title="Receipt"><i class="ph ph-receipt"></i></button>`;
+        } else if (item.bill) {
+            receiptBtn = `<button onclick="event.stopPropagation();openPayModal('${r.id}','${item.bill.id}')" style="background:var(--app-brand);color:var(--dark-900);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;gap:4px;white-space:nowrap;" title="Mark Paid"><i class="ph ph-check-circle"></i> Pay</button>`;
         }
 
         return `<div class="pay-card ${isPaid ? 'pay-card-paid' : ''}" onclick="openDetailModal('${r.id}')">
@@ -1659,15 +1665,102 @@ async function deleteResident(id) {
 }
 
 // ==================== MODAL: RECORD PAYMENT ====================
-async function quickPayResident(residentId, billId) {
-    const r = AppState.residents.find(r => r.id === residentId);
+// ==================== PAYMENT MODAL ====================
+let _payState = { residentId: null, billId: null, amount: 0, method: 'cash', transferMethod: 'telebirr', customBank: '' };
+
+function openPayModal(residentId, billId) {
+    event && event.stopPropagation();
+    const r = AppState.residents.find(x => x.id === residentId);
     const bill = AppState.bills.find(b => b.id === billId);
     if (!r || !bill) return;
 
-    // Calculate full EEP amount
     let amountDue = bill.etbAmount;
     if (bill.wattsUsed > 0) {
         amountDue = calculateEEPBill(bill.wattsUsed).totalAmount;
+    }
+
+    _payState = { residentId, billId, amount: amountDue, method: 'cash', transferMethod: 'telebirr', customBank: '' };
+
+    const roomLabel = r.roomType || '';
+    const typeLabel = r.houseType === 'reader' ? 'Own Reader' : 'Watt Counter';
+    
+    document.getElementById('payModalResidentInfo').innerHTML = `
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm" style="background:var(--dark-900);color:var(--app-brand);">
+                ${Utils.getInitials(r.firstName, r.lastName)}
+            </div>
+            <div>
+                <p class="font-bold text-sm text-app-textBase">${r.firstName} ${r.lastName}</p>
+                <p class="text-xs text-app-textMuted">House ${r.houseNumber} · ${typeLabel}${roomLabel ? ' · ' + roomLabel : ''}</p>
+            </div>
+        </div>`;
+    
+    document.getElementById('payModalAmount').textContent = Utils.formatCurrency(amountDue) + ' ETB';
+    
+    // Reset UI
+    selectPayMethod('cash');
+    document.getElementById('payMethodModal').classList.remove('hidden');
+}
+
+function closePayModal() {
+    document.getElementById('payMethodModal').classList.add('hidden');
+}
+
+function selectPayMethod(method) {
+    _payState.method = method;
+    
+    document.querySelectorAll('.pay-method-btn').forEach(btn => {
+        btn.style.borderColor = 'transparent';
+        btn.style.background = 'var(--dark-700)';
+    });
+    
+    if (method === 'cash') {
+        document.getElementById('pmCashBtn').style.borderColor = 'var(--app-brand)';
+        document.getElementById('pmCashBtn').style.background = 'rgba(158,255,47,0.1)';
+        document.getElementById('transferOptions').classList.add('hidden');
+    } else {
+        document.getElementById('pmTransferBtn').style.borderColor = 'var(--app-brand)';
+        document.getElementById('pmTransferBtn').style.background = 'rgba(158,255,47,0.1)';
+        document.getElementById('transferOptions').classList.remove('hidden');
+        selectTransferMethod('telebirr');
+    }
+}
+
+function selectTransferMethod(tm) {
+    _payState.transferMethod = tm;
+    
+    document.querySelectorAll('.tm-btn').forEach(btn => {
+        btn.style.borderColor = 'transparent';
+        btn.style.background = 'var(--dark-700)';
+    });
+    
+    document.getElementById('tmTelebirr').style.borderColor = tm === 'telebirr' ? 'var(--app-brand)' : 'transparent';
+    document.getElementById('tmTelebirr').style.background = tm === 'telebirr' ? 'rgba(158,255,47,0.1)' : 'var(--dark-700)';
+    document.getElementById('tmCbe').style.borderColor = tm === 'cbe' ? 'var(--app-brand)' : 'transparent';
+    document.getElementById('tmCbe').style.background = tm === 'cbe' ? 'rgba(158,255,47,0.1)' : 'var(--dark-700)';
+    document.getElementById('tmOther').style.borderColor = tm === 'other' ? 'var(--app-brand)' : 'transparent';
+    document.getElementById('tmOther').style.background = tm === 'other' ? 'rgba(158,255,47,0.1)' : 'var(--dark-700)';
+    
+    if (tm === 'other') {
+        document.getElementById('customBankField').classList.remove('hidden');
+    } else {
+        document.getElementById('customBankField').classList.add('hidden');
+    }
+}
+
+async function confirmPayment() {
+    const { residentId, billId, amount, method, transferMethod, customBank } = _payState;
+    const r = AppState.residents.find(x => x.id === residentId);
+    const bill = AppState.bills.find(b => b.id === billId);
+    if (!r || !bill) return;
+
+    let methodStr = method;
+    let notes = '';
+    if (method === 'transfer') {
+        methodStr = transferMethod === 'other' ? (customBank || 'Other Bank') : transferMethod;
+        notes = 'Transfer via ' + methodStr;
+    } else {
+        notes = 'Cash payment';
     }
 
     const monthKeyParts = bill.monthKey.split('-');
@@ -1678,12 +1771,12 @@ async function quickPayResident(residentId, billId) {
     const paymentData = {
         id: Utils.generateId(),
         billId, residentId: r.id, monthKey: bill.monthKey, month, year,
-        amountPaid: amountDue,
-        amountDue: amountDue,
-        method: 'cash',
+        amountPaid: amount,
+        amountDue: amount,
+        method: methodStr,
         date: today,
         receipt: '',
-        notes: 'Quick payment - marked paid',
+        notes: notes,
         createdAt: Date.now()
     };
 
@@ -1699,8 +1792,9 @@ async function quickPayResident(residentId, billId) {
     // Save receipt
     try { await saveReceipt(paymentData, bill, r); } catch(e) { console.error('Receipt error:', e); }
 
-    showToast(`${r.firstName} ${r.lastName} paid ${Utils.formatCurrency(amountDue)} ETB ✓`, 'success');
-    await logActivity('Quick Payment', `${r.firstName} ${r.lastName} - ${Utils.formatCurrency(amountDue)} ETB`);
+    closePayModal();
+    showToast(`${r.firstName} ${r.lastName} paid ${Utils.formatCurrency(amount)} ETB via ${methodStr} ✓`, 'success');
+    await logActivity('Payment', `${r.firstName} ${r.lastName} - ${Utils.formatCurrency(amount)} ETB (${methodStr})`);
     refreshPage(AppState.currentPage);
 }
 
@@ -2786,6 +2880,19 @@ async function removePunishment(residentId, monthKey) {
     showToast('Electricity reconnected!', 'success');
     await logActivity('Reconnected', `Resident ${residentId}`);
     renderPunish();
+}
+
+
+// ==================== LOGOUT ====================
+function handleLogout() {
+    if (confirm('Are you sure you want to logout?')) {
+        localStorage.removeItem('session_token');
+        localStorage.removeItem('session_expires');
+        AppState.currentUser = null;
+        AppState.isLoggedIn = false;
+        document.getElementById('appContainer').classList.add('hidden');
+        document.getElementById('loginScreen').classList.remove('hidden');
+    }
 }
 
 // ==================== INIT ====================
