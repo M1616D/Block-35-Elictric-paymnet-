@@ -1799,8 +1799,11 @@ async function openPayModal(residentId, billId) {
     
     // Own reader without a bill: auto-create the fixed-amount bill
     if (!bill && r.houseType === 'reader') {
-        const month = AppState.currentMonth;
-        const year = AppState.currentYear;
+        // Use the month/year shown on the page (e.g. Payments page dropdown) if present
+        const pmEl = document.getElementById('paymentMonth');
+        const pyEl = document.getElementById('paymentYear');
+        const month = pmEl && pmEl.value ? parseInt(pmEl.value) : AppState.currentMonth;
+        const year = pyEl && pyEl.value ? parseInt(pyEl.value) : AppState.currentYear;
         const monthKey = Utils.getMonthKey(year, month);
         const fixedAmt = parseFloat(AppState.settings.fixedAmount) || 100;
         bill = {
