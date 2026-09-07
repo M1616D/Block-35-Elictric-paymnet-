@@ -117,7 +117,7 @@
         .left-sidebar {
             width: 260px;
             min-width: 260px;
-            background: #35364F;
+            background: var(--dark-800);
             display: flex;
             flex-direction: column;
             padding: 32px 0;
@@ -126,11 +126,11 @@
             z-index: 20;
             flex-shrink: 0;
             box-shadow: 10px 0 40px rgba(0,0,0,0.3);
-            overflow: visible;
+            overflow: hidden;
             position: relative;
         }
         [data-theme="light"] .left-sidebar {
-            background: #35364F;
+            background: var(--dark-800);
         }
         .left-sidebar nav {
             flex: 1;
@@ -161,7 +161,8 @@
         }
         .left-sidebar .sidebar-link.active {
             color: #ffffff;
-            background: #222338;
+            background: var(--app-brand);
+            color: var(--dark-900);
             font-weight: 600;
             z-index: 2;
             border-radius: 0 32px 32px 0;
@@ -169,24 +170,26 @@
         .left-sidebar .sidebar-link.active::before {
             content: '';
             position: absolute;
-            left: -1px;
-            top: -16px;
+            right: 0;
+            top: -8px;
             width: 16px;
             height: 16px;
-            background: #222338;
-            border-radius: 0 0 16px 0;
-            z-index: 1;
+            background: transparent;
+            box-shadow: 8px 8px 0 0 var(--app-brand);
+            border-radius: 0 0 0 16px;
+            z-index: 3;
         }
         .left-sidebar .sidebar-link.active::after {
             content: '';
             position: absolute;
-            left: -1px;
-            bottom: -16px;
+            right: 0;
+            bottom: -8px;
             width: 16px;
             height: 16px;
-            background: #222338;
+            background: transparent;
+            box-shadow: 8px -8px 0 0 var(--app-brand);
             border-radius: 0 16px 0 0;
-            z-index: 1;
+            z-index: 3;
         }
         .left-sidebar .sidebar-link.active i {
             color: #ffffff;
@@ -220,14 +223,14 @@
             height: 16px;
             border-radius: 50%;
             background: #ff4757;
-            border: 3px solid #35364F;
+            border: 3px solid var(--dark-800);
         }
         .sidebar-logout-btn {
             margin: 16px 20px 12px;
             padding: 12px;
             border-radius: 18px;
-            background: #ffffff;
-            color: #5d55e8;
+            background: var(--app-brand);
+            color: var(--dark-900);
             font-weight: 700;
             font-size: 14px;
             display: flex;
@@ -240,7 +243,88 @@
         }
         .sidebar-logout-btn:hover { background: #f0f0f0; transform: translateY(-1px); }
 
-        /* ===== MAIN CONTENT ===== *//* ===== MAIN CONTENT ===== */
+        
+        /* Sidebar Minimize Toggle */
+        .sidebar-toggle {
+            position: absolute;
+            top: 50%;
+            right: -14px;
+            transform: translateY(-50%);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: var(--app-brand);
+            color: var(--dark-900);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 25;
+            border: 3px solid var(--dark-900);
+            font-size: 12px;
+            transition: transform 0.3s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .sidebar-toggle:hover { transform: translateY(-50%) scale(1.1); }
+        .left-sidebar.collapsed {
+            width: 72px !important;
+            min-width: 72px !important;
+            padding: 32px 0 !important;
+            border-radius: 0 20px 20px 0;
+        }
+        .left-sidebar.collapsed .sidebar-logo span,
+        .left-sidebar.collapsed .sidebar-link span,
+        .left-sidebar.collapsed .sidebar-logout-btn span {
+            display: none !important;
+        }
+        .left-sidebar.collapsed .sidebar-logo {
+            justify-content: center;
+            padding: 0 0 30px 0;
+        }
+        .left-sidebar.collapsed .sidebar-link {
+            justify-content: center;
+            padding: 14px 0;
+            margin-right: 0;
+            border-radius: 0;
+        }
+        .left-sidebar.collapsed .sidebar-link.active {
+            border-radius: 0;
+            background: var(--app-brand);
+            color: var(--dark-900);
+        }
+        .left-sidebar.collapsed .sidebar-link.active::before,
+        .left-sidebar.collapsed .sidebar-link.active::after {
+            display: none;
+        }
+        .left-sidebar.collapsed .sidebar-logout-btn {
+            margin: 16px 8px 12px;
+        }
+        .left-sidebar.collapsed .sidebar-logout-btn i {
+            margin: 0;
+        }
+
+        /* ===== MAIN CONTENT ===== */
+            padding: 14px 0;
+            margin-right: 0;
+            border-radius: 0;
+        }
+        .left-sidebar.collapsed .sidebar-link.active {
+            border-radius: 0;
+            background: var(--app-brand);
+            color: var(--dark-900);
+        }
+        .left-sidebar.collapsed .sidebar-link.active::before,
+        .left-sidebar.collapsed .sidebar-link.active::after {
+            display: none;
+        }
+        .left-sidebar.collapsed .sidebar-logout-btn {
+            margin: 16px 8px 12px;
+        }
+        .left-sidebar.collapsed .sidebar-logout-btn i {
+            margin: 0;
+        }
+
+        /* ===== MAIN CONTENT ===== */
         .main-content {
             flex: 1;
             padding: 32px;
@@ -1431,6 +1515,7 @@
             <!-- ===== LEFT SIDEBAR ===== -->
             <aside id="desktopSidebar" class="left-sidebar">
                 <!-- Logo -->
+                <div class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle Sidebar"><i class="ph ph-caret-left"></i></div>
                 <div class="sidebar-logo" onclick="navigateTo('dashboard')">
                     <div class="sidebar-logo-icon">
                         <div class="logo-main"></div>
@@ -1493,6 +1578,15 @@
                 <!-- Header -->
                 <header class="topbar">
                     <div class="flex items-center gap-3">
+                        
+                        <!-- Notification Bell -->
+                        <div class="relative" onclick="showNotifications()" style="cursor:pointer;">
+                            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:var(--dark-700);">
+                                <i class="ph-fill ph-bell text-lg" style="color:var(--app-text-muted);"></i>
+                            </div>
+                            <span class="notification-badge absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center" style="background:#ef4444;color:white;display:none;">0</span>
+                        </div>
+
                         <button id="menuBtn" class="neu-button w-10 h-10 rounded-xl flex items-center justify-center text-app-textMuted lg:hidden">
                             <i class="ph ph-list text-lg"></i>
                         </button>
@@ -1924,7 +2018,7 @@
                             <h3 class="text-sm font-bold text-app-textBase mb-3" data-i18n="settings_billing">Billing Configuration</h3>
                             <div class="space-y-3">
                                 <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium" data-i18n="settings_etb_per_watt">ETB per Watt</label><input type="number" id="settingEtbPerWatt" step="0.001" min="0" class="dark-input text-xs"></div>
-                                <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium">Fixed Amount for Own Reader (ETB)</label><input type="number" id="settingFixedAmount" step="0.01" min="0" class="dark-input text-xs" placeholder="e.g. 500"></div>
+                                <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium">Fixed Amount for Own Reader (ETB)</label><input type="number" id="settingFixedAmount" placeholder="Default: 100 ETB" step="0.01" min="0" class="dark-input text-xs" placeholder="e.g. 500"></div>
                                 <div class="grid grid-cols-2 gap-3">
                                     <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium" data-i18n="settings_total_floors">Total Floors</label><input type="number" id="settingTotalFloors" min="1" max="50" class="dark-input text-xs"></div>
                                     <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium" data-i18n="settings_houses_per_floor">Houses/Floor</label><input type="number" id="settingHousesPerFloor" min="1" max="100" class="dark-input text-xs"></div>
@@ -2239,7 +2333,7 @@
     <!-- Hidden file input -->
     <input type="file" id="importFileInput" accept=".json" class="hidden">
 
-    <script src="app.js?v=14"></script>
+    <script src="app.js?v=16"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -2250,7 +2344,7 @@
 
     <!-- ===== PAYMENT METHOD MODAL ===== -->
     <div id="payMethodModal" class="modal-overlay hidden" style="z-index:9999;">
-        <div class="modal-card" style="max-width:400px;width:90%;margin:auto;margin-top:15vh;background:var(--dark-800);border-radius:20px;padding:24px;border:1px solid rgba(255,255,255,0.08);">
+        <div class="modal-card" style="max-width:400px;width:90%;margin:auto;margin-top:10vh;background:var(--dark-800);border-radius:20px;padding:28px;border:1px solid rgba(255,255,255,0.08);max-height:80vh;overflow-y:auto;">
             <div class="flex items-center justify-between mb-5">
                 <h3 class="text-lg font-bold text-app-textBase">Mark as Paid</h3>
                 <button onclick="closePayModal()" class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors">
@@ -2310,5 +2404,20 @@
         </div>
     </div>
     
+
+    <script>
+        function showNotifications() {
+            NotificationSystem.checkDeadlines().then(warnings => {
+                let msg = '';
+                if (warnings.length === 0) {
+                    msg = 'No pending payment warnings. All residents are up to date!';
+                } else {
+                    msg = warnings.map(w => w.message).join('\n\n');
+                }
+                alert('Payment Notifications (' + warnings.length + '):\n\n' + msg);
+            });
+        }
+    </script>
+
 </body>
 </html>

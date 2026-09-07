@@ -888,6 +888,97 @@ function showDrillDown(type) {
 }
 
 
+// ==================== TOGGLE SIDEBAR ====================
+function toggleSidebar() {
+    const sidebar = document.getElementById('desktopSidebar');
+    const icon = sidebar.querySelector('.sidebar-toggle i');
+    if (sidebar.classList.contains('collapsed')) {
+        sidebar.classList.remove('collapsed');
+        icon.className = 'ph ph-caret-left';
+    } else {
+        sidebar.classList.add('collapsed');
+        icon.className = 'ph ph-caret-right';
+    }
+}
+
+// ==================== ETHIOPIAN CALENDAR ====================
+const EthiopianCalendar = {
+    months: ['Meskerem','Tikimt','Hidar','Tahsas','Tir','Yekatit','Megabit','Miazia','Ginbot','Sene','Hamle','Nehase','Pagume'],
+    toEthiopian(date) {
+        const g = new Date(date);
+        const gy = g.getFullYear(), gm = g.getMonth() + 1, gd = g.getDate();
+        let ey = gy - 8;
+        if (gm < 9 || (gm === 9 && gd < 11)) ey--;
+        let em;
+        if (gm > 9 || (gm === 9 && gd >= 11)) { em = gm - 8; }
+        else { em = gm + 4; }
+        if (em > 13) em = 13;
+        return { year: ey, month: em, monthName: this.months[em - 1] || 'Pagume' };
+    },
+    now() { return this.toEthiopian(new Date()); },
+    getPaymentWindow(gregorianMonth, gregorianYear) {
+        const gm = gregorianMonth;
+        const gy = gregorianYear;
+        return {
+            startDate: new Date(gy, gm - 1, 25),
+            endDate: new Date(gy, gm, 0, 23, 59, 59),
+            graceEndDate: new Date(gy, gm, 3, 23, 59, 59),
+            punishmentDate: new Date(gy, gm, 4, 0, 0, 0)
+        };
+    },
+    getPaymentStatus(bill, payment) {
+        if (payment) return 'paid';
+        if (!bill) return 'none';
+        const now = new Date();
+        const deadline = this.getPaymentWindow(bill.month, bill.year);
+        if (now < deadline.startDate) return 'upcoming';
+        if (now >= deadline.startDate && now <= deadline.endDate) return 'pending';
+        if (now > deadline.endDate && now <= deadline.graceEndDate) return 'expiring';
+        if (now > deadline.graceEndDate) return 'expired';
+        return 'pending';
+    }
+};
+
+// ==================== NOTIFICATION SYSTEM ====================
+const NotificationSystem = {
+    warnings: [],
+    async checkDeadlines() {
+        this.warnings = [];
+        for (const r of AppState.residents) {
+            const bill = AppState.bills.find(b => b.residentId === r.id && b.monthKey === Utils.getMonthKey(AppState.currentYear, AppState.currentMonth));
+            const payment = bill ? AppState.payments.find(p => p.billId === bill.id && p.monthKey === bill.monthKey) : null;
+            if (payment || !bill) continue;
+            const status = EthiopianCalendar.getPaymentStatus(bill, payment);
+            const deadline = EthiopianCalendar.getPaymentWindow(bill.month, bill.year);
+            if (status === 'pending') {
+                this.warnings.push({ type: 'warning', resident: r, message: r.firstName + ' ' + r.lastName + ' (House ' + r.houseNumber + ') - Payment due!', urgency: 'normal' });
+            } else if (status === 'expiring') {
+                this.warnings.push({ type: 'urgent', resident: r, message: r.firstName + ' ' + r.lastName + ' (House ' + r.houseNumber + ') - EXPIRING! Pay now or electricity will be cut!', urgency: 'high' });
+            } else if (status === 'expired') {
+                this.warnings.push({ type: 'expired', resident: r, message: r.firstName + ' ' + r.lastName + ' (House ' + r.houseNumber + ') - EXPIRED! Electricity should be disconnected.', urgency: 'critical' });
+            }
+        }
+        return this.warnings;
+    },
+    getCount() { return this.warnings.length; },
+    updateBadge() {
+        const count = this.warnings.length;
+        document.querySelectorAll('.notification-badge').forEach(b => {
+            b.textContent = count;
+            b.style.display = count > 0 ? 'flex' : 'none';
+        });
+    },
+    isReminderDay() { const d = new Date().getDate(); return d >= 25 && d <= 30; },
+    isGracePeriod() { const d = new Date().getDate(); return d >= 1 && d <= 3; },
+    isPunishmentDay() { return new Date().getDate() >= 4; },
+    getGreeting() {
+        if (this.isReminderDay()) return 'Payment collection period (25th-30th). Collect monthly payments!';
+        if (this.isGracePeriod()) return 'Grace period! Residents who haven\'t paid - last chance before disconnection.';
+        if (this.isPunishmentDay()) return 'Warning: Unpaid residents may have electricity disconnected.';
+        return null;
+    }
+};
+
 // ==================== NAVIGATION ====================
 function navigateTo(page) {
     AppState.currentPage = page;
@@ -912,6 +1003,8 @@ function navigateTo(page) {
 }
 
 function refreshPage(page) {
+    // Check notifications on each page refresh
+    NotificationSystem.checkDeadlines().then(() => NotificationSystem.updateBadge());
     switch (page) {
         case 'dashboard': renderDashboard(); break;
         case 'residents': renderResidents(); break;
@@ -1259,7 +1352,7 @@ async function renderBills() {
         const bill = AppState.bills.find(b => b.residentId === r.id && b.monthKey === monthKey);
         const payment = bill ? AppState.payments.find(p => p.billId === bill.id && p.monthKey === monthKey) : null;
         const watts = bill ? bill.wattsUsed : '';
-        const fixedAmt = parseFloat(AppState.settings.fixedAmount) || 0;
+        const fixedAmt = parseFloat(AppState.settings.fixedAmount) || 100;
 
         // Calculate the correct ETB for display
         let etb = 0;
@@ -1284,9 +1377,19 @@ async function renderBills() {
             : `<div class="wc-avatar">${initials}</div>`;
 
         const isPaid = !!payment;
-        const statusBadge = isPaid
-            ? '<span class="wc-badge wc-badge-paid"><i class="ph ph-check"></i> Paid</span>'
-            : (bill ? '<span class="wc-badge wc-badge-pending"><i class="ph ph-clock"></i> Pending</span>' : '<span class="wc-badge wc-badge-none">\u2014</span>');
+        const billCalStatus = bill ? EthiopianCalendar.getPaymentStatus(bill, payment) : 'none';
+        let statusBadge;
+        if (isPaid) {
+            statusBadge = '<span class="wc-badge wc-badge-paid"><i class="ph ph-check"></i> Paid</span>';
+        } else if (billCalStatus === 'expired') {
+            statusBadge = '<span class="wc-badge" style="background:rgba(239,68,68,0.15);color:#ef4444;"><i class="ph ph-warning"></i> Expired</span>';
+        } else if (billCalStatus === 'expiring') {
+            statusBadge = '<span class="wc-badge" style="background:rgba(245,158,11,0.15);color:#f59e0b;"><i class="ph ph-clock"></i> Expiring</span>';
+        } else if (billCalStatus === 'upcoming') {
+            statusBadge = '<span class="wc-badge wc-badge-pending"><i class="ph ph-calendar"></i> Upcoming</span>';
+        } else {
+            statusBadge = bill ? '<span class="wc-badge wc-badge-pending"><i class="ph ph-clock"></i> Pending</span>' : '<span class="wc-badge wc-badge-none">\u2014</span>';
+        }
 
         // EEP breakdown dropdown
         let breakdownHTML = '';
@@ -1353,7 +1456,7 @@ async function renderBills() {
             const rid = input.dataset.residentId;
             const rr = AppState.residents.find(r => r.id === rid);
             if (rr && rr.houseType === "reader") {
-                const fixed = parseFloat(AppState.settings.fixedAmount) || 0;
+                const fixed = parseFloat(AppState.settings.fixedAmount) || 100;
                 etbEl.textContent = Utils.formatCurrency(fixed) + " ETB";
             } else if (val > 0) {
                 const calc = calculateEEPBill(val);
@@ -1424,9 +1527,13 @@ async function renderPayments() {
         list.innerHTML = items.map(item => {
         const r = item.resident;
         const isPaid = item.status === 'paid';
-        const statusBadge = isPaid ? '<span class="pay-badge pay-badge-paid"><i class="ph ph-check"></i> PAID</span>' :
-                            item.status === 'pending' ? '<span class="pay-badge pay-badge-pending">PENDING</span>' :
-                            '<span class="pay-badge pay-badge-none">NO BILL</span>';
+        const calStatus = item.bill ? EthiopianCalendar.getPaymentStatus(item.bill, item.payment) : 'no_bill';
+        let statusBadge;
+        if (isPaid) { statusBadge = '<span class="pay-badge pay-badge-paid"><i class="ph ph-check"></i> PAID</span>'; }
+        else if (calStatus === 'expired') { statusBadge = '<span class="pay-badge" style="background:rgba(239,68,68,0.15);color:#ef4444;">EXPIRED</span>'; }
+        else if (calStatus === 'expiring') { statusBadge = '<span class="pay-badge" style="background:rgba(245,158,11,0.15);color:#f59e0b;">EXPIRING</span>'; }
+        else if (calStatus === 'upcoming') { statusBadge = '<span class="pay-badge pay-badge-pending">UPCOMING</span>'; }
+        else { statusBadge = item.status === 'pending' ? '<span class="pay-badge pay-badge-pending">PENDING</span>' : '<span class="pay-badge pay-badge-none">NO BILL</span>'; }
 
         const initials = Utils.getInitials(r.firstName, r.lastName);
         const avatar = r.photo
@@ -1560,7 +1667,7 @@ function renderSettings() {
     if (el('settingBuildingAddress')) el('settingBuildingAddress').value = s.buildingAddress || '';
     if (el('settingContactPhone')) el('settingContactPhone').value = s.contactPhone || '';
     if (el('settingEtbPerWatt')) el('settingEtbPerWatt').value = s.etbPerWatt || 6.4592;
-    if (el('settingFixedAmount')) el('settingFixedAmount').value = s.fixedAmount || 0;
+    if (el('settingFixedAmount')) el('settingFixedAmount').value = s.fixedAmount || 100;
     if (el('settingTotalFloors')) el('settingTotalFloors').value = s.totalFloors || 8;
     if (el('settingHousesPerFloor')) el('settingHousesPerFloor').value = s.housesPerFloor || 8;
     if (el('settingGroundHouses')) el('settingGroundHouses').value = s.groundHouses || 10;
@@ -1962,7 +2069,7 @@ function openDetailModal(residentId, context) {
         eepCalc = calculateEEPBill(bill.wattsUsed);
         etb = eepCalc.totalAmount;
     } else if (r.houseType === 'reader') {
-        etb = parseFloat(AppState.settings.fixedAmount) || 0;
+        etb = parseFloat(AppState.settings.fixedAmount) || 100;
     }
     
     const floorName = r.floor === 0 ? 'Ground' : `Floor ${r.floor}`;
@@ -2251,6 +2358,10 @@ function setupSyncUI() {
     if (exportBtn) {
         exportBtn.addEventListener('click', async () => {
             const data = await db.exportAll();
+                // Add Block 35 naming
+                const ethMonth = EthiopianCalendar.now();
+                data.exportName = `Block 35 - ${ethMonth.monthName} ${ethMonth.year} (${AppState.currentYear})`;
+                data.exportDate = new Date().toISOString();
             data.credentials = AppState.credentials;
             data.config = AppState.settings;
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
