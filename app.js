@@ -1808,7 +1808,7 @@ async function openPayModal(residentId, billId) {
         amountDue = calculateEEPBill(bill.wattsUsed).totalAmount;
     }
 
-    _payState = { residentId, billId, amount: amountDue, method: 'cash', transferMethod: 'telebirr', customBank: '' };
+    _payState = { residentId, billId: bill.id, amount: amountDue, method: 'cash', transferMethod: 'telebirr', customBank: '' };
 
     const roomLabel = r.roomType || '';
     const typeLabel = r.houseType === 'reader' ? 'Own Reader' : 'Watt Counter';
