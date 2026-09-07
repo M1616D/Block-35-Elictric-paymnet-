@@ -1415,8 +1415,8 @@ async function renderBills() {
             actionHTML = `<button onclick="event.stopPropagation();openReceiptViewer('${payment.id}')" class="wc-btn-icon" title="Receipt"><i class="ph ph-receipt"></i></button>`;
         } else if (bill && bill.wattsUsed > 0) {
             actionHTML = `<button onclick="event.stopPropagation();openPayModal('${r.id}','${bill.id}')" class="wc-btn-pay" title="Mark Paid" style="background:var(--app-brand);color:var(--dark-900);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;gap:4px;white-space:nowrap;"><i class="ph ph-check-circle"></i> Pay</button>`;
-        } else if (bill && r.houseType === 'reader') {
-            actionHTML = `<button onclick="event.stopPropagation();openPayModal('${r.id}','${bill.id}')" class="wc-btn-pay" title="Mark Paid" style="background:var(--app-brand);color:var(--dark-900);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;gap:4px;white-space:nowrap;"><i class="ph ph-check-circle"></i> Pay</button>`;
+        } else if (r.houseType === 'reader' && !isPaid) {
+            actionHTML = `<button onclick="event.stopPropagation();openPayModal('${r.id}','${bill ? bill.id : ''}')" class="wc-btn-pay" title="Mark Paid" style="background:var(--app-brand);color:var(--dark-900);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;gap:4px;white-space:nowrap;"><i class="ph ph-check-circle"></i> Pay</button>`;
         }
         const toggleBtn = (eepCalc && watts > 0) ? `<button class="wc-btn-icon" onclick="event.stopPropagation();toggleBreakdown('${r.id}')" title="Show breakdown"><i class="ph ph-caret-down"></i></button>` : '';
 
@@ -1553,6 +1553,8 @@ async function renderPayments() {
             receiptBtn = `<button onclick="event.stopPropagation();openReceiptViewer('${item.payment.id}')" class="pay-receipt-btn" title="Receipt"><i class="ph ph-receipt"></i></button>`;
         } else if (item.bill) {
             receiptBtn = `<button onclick="event.stopPropagation();openPayModal('${r.id}','${item.bill.id}')" style="background:var(--app-brand);color:var(--dark-900);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;gap:4px;white-space:nowrap;" title="Mark Paid"><i class="ph ph-check-circle"></i> Pay</button>`;
+        } else if (!isPaid) {
+            receiptBtn = `<button onclick="event.stopPropagation();openPayModal('${r.id}','')" style="background:var(--app-brand);color:var(--dark-900);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;gap:4px;white-space:nowrap;" title="Mark Paid"><i class="ph ph-check-circle"></i> Pay</button>`;
         }
 
         return `<div class="pay-card ${isPaid ? 'pay-card-paid' : ''}" onclick="openDetailModal('${r.id}')">
@@ -1778,10 +1780,33 @@ let _payState = { residentId: null, billId: null, amount: 0, method: 'cash', tra
 function openPayModal(residentId, billId) {
     event && event.stopPropagation();
     const r = AppState.residents.find(x => x.id === residentId);
-    const bill = AppState.bills.find(b => b.id === billId);
-    if (!r || !bill) return;
+    if (!r) return;
+    
+    let bill = billId ? AppState.bills.find(b => b.id === billId) : null;
+    
+    // Auto-create bill for own reader if no bill exists
+    if (!bill && r.houseType === 'reader') {
+        const month = AppState.currentMonth;
+        const year = AppState.currentYear;
+        const monthKey = Utils.getMonthKey(year, month);
+        const fixedAmt = parseFloat(AppState.settings.fixedAmount) || 100;
+        bill = {
+            id: Utils.generateId(),
+            residentId: r.id,
+            monthKey: monthKey,
+            month: month,
+            year: year,
+            wattsUsed: 0,
+            etbAmount: fixedAmt,
+            createdAt: new Date().toISOString()
+        };
+        // Save bill to DB
+        db.save('bills', bill);
+        AppState.bills.push(bill);
+    }
+    if (!bill) return;
 
-    let amountDue = bill.etbAmount;
+    let amountDue = bill.etbAmount || 0;
     if (bill.wattsUsed > 0) {
         amountDue = calculateEEPBill(bill.wattsUsed).totalAmount;
     }
