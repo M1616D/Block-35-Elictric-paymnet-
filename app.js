@@ -279,7 +279,7 @@ const db = new Database();
 const Utils = {
     generateId: () => Date.now().toString(36) + Math.random().toString(36).substr(2, 9),
     getMonthKey: (y, m) => `${y}-${String(m).padStart(2, '0')}`,
-    getMonthName: (m) => ['January','February','March','April','May','June','July','August','September','October','November','December'][m - 1],
+    getMonthName: (m) => ['Meskerem','Tikimt','Hidar','Tahsas','Tir','Yekatit','Megabit','Miazia','Ginbot','Sene','Hamle','Nehase','Pagume'][m - 1] || 'Meskerem',
     formatDate: (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '-',
     formatDateTime: (d) => d ? new Date(d).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-',
     formatCurrency: (a) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(a || 0),
@@ -289,16 +289,16 @@ const Utils = {
     esc: (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'),
     sanitize: (s) => String(s == null ? '' : s).replace(/[<>`]/g, ''),
     debounce: (fn, w) => { let timer; return (...a) => { clearTimeout(timer); timer = setTimeout(() => fn(...a), w); }; },
-    populateMonthSelect: (el) => { ['January','February','March','April','May','June','July','August','September','October','November','December'].forEach((n, i) => { const o = document.createElement('option'); o.value = i + 1; o.textContent = n; el.appendChild(o); }); },
-    populateYearSelect: (el, range = 5) => { const cy = new Date().getFullYear(); for (let y = cy - range; y <= cy + 1; y++) { const o = document.createElement('option'); o.value = y; o.textContent = y; el.appendChild(o); } },
-    setCurrentMonthYear: (ms, ys) => { ms.value = new Date().getMonth() + 1; ys.value = new Date().getFullYear(); }
+    populateMonthSelect: (el) => { ['Meskerem','Tikimt','Hidar','Tahsas','Tir','Yekatit','Megabit','Miazia','Ginbot','Sene','Hamle','Nehase','Pagume'].forEach((n, i) => { const o = document.createElement('option'); o.value = i + 1; o.textContent = n; el.appendChild(o); }); },
+    populateYearSelect: (el, range = 12) => { const cy = (typeof EthiopianCalendar !== 'undefined' && EthiopianCalendar.now) ? EthiopianCalendar.now().year : new Date().getFullYear() - 8; for (let y = cy - range; y <= cy + 2; y++) { const o = document.createElement('option'); o.value = y; o.textContent = y; el.appendChild(o); } },
+    setCurrentMonthYear: (ms, ys) => { const e = (typeof EthiopianCalendar !== 'undefined' && EthiopianCalendar.now) ? EthiopianCalendar.now() : { month: 1, year: 2018 }; ms.value = e.month; ys.value = e.year; }
 };
 
 // ==================== STATE ====================
 const AppState = {
     currentPage: 'dashboard',
     currentMonth: new Date().getMonth() + 1, currentYear: new Date().getFullYear(),
-    residents: [], bills: [], payments: [], settings: {}, activity: [], syncLog: [], receipts: [],
+    residents: [], bills: [], payments: [], settings: {}, activity: [], syncLog: [], receipts: [], meterPhotos: {},
     batchIndex: 0, batchHouses: [], punishments: [],
     currentFilter: { floor: 'all', search: '', billFloor: 'all', payStatus: 'all', reportTab: 'overview' },
     lockTimeout: 5, lockTimer: null, lastActivity: Date.now(),
@@ -486,9 +486,9 @@ function getReportData(month, year) {
 // Based on real EEP Commercial tariff: Energy + Service + Regulatory + Tax
 function calculateEEPBill(kWh, options = {}) {
     const rate = options.rate || parseFloat(AppState.settings.etbPerWatt) || 6.4592;
-    const SERVICE_CHARGE_FIXED = 64.70; // Fixed service charge (ETB)
-    const regulatoryRate = 0.005; // 0.5% of subtotal
-    const taxRate = 0.15; // 15% VAT of subtotal
+    const SERVICE_CHARGE_FIXED = parseFloat(AppState.settings.serviceCharge) || 71.23; // Fixed service charge (ETB) - editable in Settings
+    const regulatoryRate = (parseFloat(AppState.settings.regulatoryRate) || 0.5) / 100; // Regulatory fee % of subtotal - editable in Settings
+    const taxRate = (parseFloat(AppState.settings.vatRate) || 15) / 100; // VAT % of subtotal - editable in Settings
     const billingDays = options.billingDays || 30;
     const interestPaid = options.interestPaid || 0;
 
@@ -651,14 +651,14 @@ function generateReceiptHTML(payment, bill, resident, eepCalc, settings) {
                 </div>
                 <div class="table-row-dark flex items-center px-4 sm:px-6 py-2.5 sm:py-3 text-[10px] sm:text-xs">
                     <div class="w-[8%] text-center text-invoice-textMuted">03</div>
-                    <div class="w-[42%] sm:w-[45%] pl-2 sm:pl-4 font-medium text-gray-200">Regulatory Fee (0.5%)</div>
+                    <div class="w-[42%] sm:w-[45%] pl-2 sm:pl-4 font-medium text-gray-200">Regulatory Fee (${eepCalc ? eepCalc.regulatoryRate : 0.5}%)</div>
                     <div class="w-[17%] text-center text-invoice-textMuted">0.5%</div>
                     <div class="w-[15%] text-center text-invoice-textMuted">—</div>
                     <div class="w-[18%] text-right font-medium pr-1 sm:pr-2">${regulatoryFee.toFixed(2)}</div>
                 </div>
                 <div class="table-row-dark flex items-center px-4 sm:px-6 py-2.5 sm:py-3 text-[10px] sm:text-xs">
                     <div class="w-[8%] text-center text-invoice-textMuted">04</div>
-                    <div class="w-[42%] sm:w-[45%] pl-2 sm:pl-4 font-medium text-gray-200">VAT Tax (15%)</div>
+                    <div class="w-[42%] sm:w-[45%] pl-2 sm:pl-4 font-medium text-gray-200">VAT Tax (${eepCalc ? eepCalc.taxRate : 15}%)</div>
                     <div class="w-[17%] text-center text-invoice-textMuted">15%</div>
                     <div class="w-[15%] text-center text-invoice-textMuted">—</div>
                     <div class="w-[18%] text-right font-medium pr-1 sm:pr-2">${tax.toFixed(2)}</div>
@@ -685,7 +685,7 @@ function generateReceiptHTML(payment, bill, resident, eepCalc, settings) {
                     <div class="flex justify-between"><span class="text-invoice-textMuted">Energy Charge</span><span>:</span><span class="font-medium">${energyCharge.toFixed(2)}</span></div>
                     <div class="flex justify-between"><span class="text-invoice-textMuted">Service Charge</span><span>:</span><span class="font-medium">${serviceCharge.toFixed(2)}</span></div>
                     <div class="flex justify-between"><span class="text-invoice-textMuted">Regulatory Fee</span><span>:</span><span class="font-medium">${regulatoryFee.toFixed(2)}</span></div>
-                    <div class="flex justify-between pb-2 border-b border-invoice-border"><span class="text-invoice-textMuted">VAT (15%)</span><span>:</span><span class="font-medium">${tax.toFixed(2)}</span></div>
+                    <div class="flex justify-between pb-2 border-b border-invoice-border"><span class="text-invoice-textMuted">VAT (${eepCalc ? eepCalc.taxRate : 15}%)</span><span>:</span><span class="font-medium">${tax.toFixed(2)}</span></div>
                 </div>
                 <div class="bg-invoice-red px-3 sm:px-4 py-2.5 sm:py-3 flex justify-between font-bold text-xs sm:text-sm">
                     <span>Total Paid</span><span>:</span><span>ETB ${totalAmount.toFixed(2)}</span>
@@ -910,27 +910,61 @@ function toggleSidebar() {
 // ==================== ETHIOPIAN CALENDAR ====================
 const EthiopianCalendar = {
     months: ['Meskerem','Tikimt','Hidar','Tahsas','Tir','Yekatit','Megabit','Miazia','Ginbot','Sene','Hamle','Nehase','Pagume'],
+    // Ethiopian leap years: year % 4 === 3 (Pagume gets 6 days)
+    isLeap(ey) { return ey % 4 === 3; },
+    // Gregorian date of Meskerem 1 for Ethiopian year ey.
+    // Anchor: Meskerem 1, 2015 EC = September 11, 2022 (Gregorian).
+    _newYearDate(ey) {
+        const anchor = new Date(2022, 8, 11); // Sep 11, 2022 = Meskerem 1, 2015 EC
+        const daysBefore = (y) => 365 * (y - 1) + Math.floor(y / 4);
+        const delta = daysBefore(ey) - daysBefore(2015);
+        return new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() + delta);
+    },
+    // Gregorian date for Ethiopian (year, month, day) - month 1..13, day 1..30 (Pagume 1..5/6)
+    fromEthiopian(ey, em, ed = 1) {
+        const start = this._newYearDate(ey);
+        start.setDate(start.getDate() + (em - 1) * 30 + (ed - 1));
+        start.setHours(12, 0, 0, 0);
+        return start;
+    },
+    // Gregorian [start, end] range of an Ethiopian month
+    monthRange(ey, em) {
+        const start = this.fromEthiopian(ey, em, 1);
+        const len = em === 13 ? (this.isLeap(ey) ? 6 : 5) : 30;
+        const end = new Date(start);
+        end.setDate(end.getDate() + len - 1);
+        end.setHours(23, 59, 59, 999);
+        return { start, end, length: len };
+    },
     toEthiopian(date) {
         const g = new Date(date);
-        const gy = g.getFullYear(), gm = g.getMonth() + 1, gd = g.getDate();
-        let ey = gy - 8;
-        if (gm < 9 || (gm === 9 && gd < 11)) ey--;
-        let em;
-        if (gm > 9 || (gm === 9 && gd >= 11)) { em = gm - 8; }
-        else { em = gm + 4; }
-        if (em > 13) em = 13;
-        return { year: ey, month: em, monthName: this.months[em - 1] || 'Pagume' };
+        g.setHours(12, 0, 0, 0);
+        let ey = g.getFullYear() - 8;
+        while (this._newYearDate(ey + 1) <= g) ey++;
+        while (this._newYearDate(ey) > g) ey--;
+        const dayIndex = Math.floor((g - this._newYearDate(ey)) / 86400000);
+        const em = Math.floor(dayIndex / 30) + 1;
+        const ed = (dayIndex % 30) + 1;
+        return { year: ey, month: em, day: ed, monthName: this.months[em - 1] || 'Pagume' };
     },
     now() { return this.toEthiopian(new Date()); },
-    getPaymentWindow(gregorianMonth, gregorianYear) {
-        const gm = gregorianMonth;
-        const gy = gregorianYear;
-        return {
-            startDate: new Date(gy, gm - 1, 25),
-            endDate: new Date(gy, gm, 0, 23, 59, 59),
-            graceEndDate: new Date(gy, gm, 3, 23, 59, 59),
-            punishmentDate: new Date(gy, gm, 4, 0, 0, 0)
-        };
+    todayDay() { return this.toEthiopian(new Date()).day; },
+    // Payment window for Ethiopian month/year: collect 25th-last day, grace 1st-3rd of next month, cut from 4th
+    getPaymentWindow(ethMonth, ethYear) {
+        const range = this.monthRange(ethYear, ethMonth);
+        const startDate = new Date(range.start);
+        startDate.setDate(startDate.getDate() + 24); // 25th of the month
+        startDate.setHours(0, 0, 0, 0);
+        let ny = ethYear, nm = ethMonth + 1;
+        if (nm > 13) { nm = 1; ny++; }
+        const nextStart = this.fromEthiopian(ny, nm, 1);
+        const graceEndDate = new Date(nextStart);
+        graceEndDate.setDate(graceEndDate.getDate() + 2);
+        graceEndDate.setHours(23, 59, 59, 999);
+        const punishmentDate = new Date(nextStart);
+        punishmentDate.setDate(punishmentDate.getDate() + 3);
+        punishmentDate.setHours(0, 0, 0, 0);
+        return { startDate, endDate: range.end, graceEndDate, punishmentDate };
     },
     getPaymentStatus(bill, payment) {
         if (payment) return 'paid';
@@ -979,9 +1013,9 @@ const NotificationSystem = {
             b.style.display = count > 0 ? 'flex' : 'none';
         });
     },
-    isReminderDay() { const d = new Date().getDate(); return d >= 25 && d <= 30; },
-    isGracePeriod() { const d = new Date().getDate(); return d >= 1 && d <= 3; },
-    isPunishmentDay() { return new Date().getDate() >= 4; },
+    isReminderDay() { const d = EthiopianCalendar.todayDay(); return d >= 25 && d <= 30; },
+    isGracePeriod() { const d = EthiopianCalendar.todayDay(); return d >= 1 && d <= 3; },
+    isPunishmentDay() { return EthiopianCalendar.todayDay() >= 4; },
     getGreeting() {
         if (this.isReminderDay()) return 'Payment collection period (25th-30th). Collect monthly payments!';
         if (this.isGracePeriod()) return 'Grace period! Residents who haven\'t paid - last chance before disconnection.';
@@ -1384,6 +1418,9 @@ async function renderBills() {
             }
         }
 
+        const photoKey = `${r.id}:${monthKey}`;
+        const savedPhoto = (bill && bill.meterPhoto) || AppState.meterPhotos[photoKey] || '';
+
         const initials = Utils.getInitials(r.firstName, r.lastName);
         const avatar = r.photo
             ? `<div class="wc-avatar"><img src="${r.photo}" alt=""></div>`
@@ -1411,8 +1448,8 @@ async function renderBills() {
             <div class="wc-breakdown hidden" id="breakdown-${r.id}">
                 <div class="wc-bd-row"><span>Energy Charge</span><span>${eepCalc.kWh.toFixed(2)} kWh \u00d7 ${rate}</span><span>${Utils.formatCurrency(eepCalc.energyCharge)} ETB</span></div>
                 <div class="wc-bd-row"><span>Service Charge</span><span>Fixed</span><span>${Utils.formatCurrency(eepCalc.serviceCharge)} ETB</span></div>
-                <div class="wc-bd-row"><span>Regulatory Fee (0.5%)</span><span>\u2014</span><span>${Utils.formatCurrency(eepCalc.regulatoryFee)} ETB</span></div>
-                <div class="wc-bd-row"><span>VAT (15%)</span><span>\u2014</span><span>${Utils.formatCurrency(eepCalc.tax)} ETB</span></div>
+                <div class="wc-bd-row"><span>Regulatory Fee (${eepCalc.regulatoryRate}%)</span><span>\u2014</span><span>${Utils.formatCurrency(eepCalc.regulatoryFee)} ETB</span></div>
+                <div class="wc-bd-row"><span>VAT (${eepCalc.taxRate}%)</span><span>\u2014</span><span>${Utils.formatCurrency(eepCalc.tax)} ETB</span></div>
                 <div class="wc-bd-row wc-bd-total"><span>Total</span><span></span><span>${Utils.formatCurrency(eepCalc.totalAmount)} ETB</span></div>
             </div>`;
         } else if (r.houseType === 'reader' && fixedAmt > 0) {
@@ -1449,6 +1486,12 @@ async function renderBills() {
                     ${toggleBtn}
                     ${actionHTML}
                 </div>
+            </div>
+            <div class="wc-meter">
+                ${savedPhoto ? `<img id="meterThumb-${photoKey}" src="${savedPhoto}" class="wc-meter-thumb" alt="meter" onclick="event.stopPropagation();openMeterPhoto('${r.id}','${monthKey}')">` : ''}
+                <button id="meterAdd-${photoKey}" class="wc-meter-add ${savedPhoto ? 'hidden' : ''}" onclick="event.stopPropagation();selectMeterPhoto('${r.id}','${monthKey}')" title="Upload meter photo"><i class="ph ph-camera"></i></button>
+                <input type="file" id="meterPhotoInput-${photoKey}" accept="image/*" capture="environment" class="hidden" onchange="onMeterPhotoChange(this,'${r.id}','${monthKey}')">
+                ${savedPhoto ? `<button class="wc-meter-del" onclick="event.stopPropagation();removeMeterPhoto('${r.id}','${monthKey}')" title="Remove photo"><i class="ph ph-x"></i></button>` : ''}
             </div>
             ${breakdownHTML}
         </div>`;
@@ -1680,6 +1723,9 @@ function renderSettings() {
     if (el('settingContactPhone')) el('settingContactPhone').value = s.contactPhone || '';
     if (el('settingEtbPerWatt')) el('settingEtbPerWatt').value = s.etbPerWatt || 6.4592;
     if (el('settingFixedAmount')) el('settingFixedAmount').value = s.fixedAmount || 100;
+    if (el('settingServiceCharge')) el('settingServiceCharge').value = s.serviceCharge || 71.23;
+    if (el('settingVatRate')) el('settingVatRate').value = s.vatRate || 15;
+    if (el('settingRegulatoryRate')) el('settingRegulatoryRate').value = s.regulatoryRate || 0.5;
     if (el('settingTotalFloors')) el('settingTotalFloors').value = s.totalFloors || 8;
     if (el('settingHousesPerFloor')) el('settingHousesPerFloor').value = s.housesPerFloor || 8;
     if (el('settingGroundHouses')) el('settingGroundHouses').value = s.groundHouses || 10;
@@ -1956,6 +2002,9 @@ function openBatchWattsModal() {
     AppState.residents = [...AppState.residents].sort((a, b) => (a.floor - b.floor) || (a.houseNumber || '').localeCompare(b.houseNumber || ''));
     if (AppState.residents.length === 0) { showToast(t('no_houses'), 'error'); return; }
     AppState.batchIndex = 0;
+    const bm = document.getElementById('batchMonth');
+    const by = document.getElementById('batchYear');
+    if (bm && bm.options.length <= 1) { Utils.populateMonthSelect(bm); Utils.populateYearSelect(by); Utils.setCurrentMonthYear(bm, by); }
     document.getElementById('batchMonth').value = AppState.currentMonth;
     document.getElementById('batchYear').value = AppState.currentYear;
     updateBatchDisplay();
@@ -1979,6 +2028,52 @@ function updateBatchDisplay() {
     document.getElementById('batchProgressBar').style.width = `${pct}%`;
 }
 
+// ==================== METER PHOTO UPLOAD (watt reader evidence) ====================
+function selectMeterPhoto(residentId, monthKey) {
+    const input = document.getElementById('meterPhotoInput-' + residentId + ':' + monthKey);
+    if (input) input.click();
+}
+function onMeterPhotoChange(input, residentId, monthKey) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        const key = residentId + ':' + monthKey;
+        AppState.meterPhotos[key] = ev.target.result;
+        const thumb = document.getElementById('meterThumb-' + key);
+        if (thumb) { thumb.src = ev.target.result; thumb.classList.remove('hidden'); }
+        const addBtn = document.getElementById('meterAdd-' + key);
+        if (addBtn) addBtn.classList.add('hidden');
+    };
+    reader.readAsDataURL(file);
+}
+function removeMeterPhoto(residentId, monthKey) {
+    const key = residentId + ':' + monthKey;
+    delete AppState.meterPhotos[key];
+    const thumb = document.getElementById('meterThumb-' + key);
+    if (thumb) thumb.classList.add('hidden');
+    const addBtn = document.getElementById('meterAdd-' + key);
+    if (addBtn) addBtn.classList.remove('hidden');
+}
+function openMeterPhoto(residentId, monthKey) {
+    const key = residentId + ':' + monthKey;
+    const bill = AppState.bills.find(b => b.residentId === residentId && b.monthKey === monthKey);
+    const photo = (bill && bill.meterPhoto) || AppState.meterPhotos[key];
+    if (!photo) return;
+    const img = document.getElementById('meterPhotoViewerImg');
+    if (img) { img.src = photo; img.dataset.photoKey = key; }
+    const viewer = document.getElementById('meterPhotoViewer');
+    if (viewer) viewer.classList.remove('hidden');
+}
+function downloadMeterPhoto() {
+    const img = document.getElementById('meterPhotoViewerImg');
+    if (!img || !img.src) return;
+    const a = document.createElement('a');
+    a.href = img.src;
+    a.download = 'meter-reading-photo.jpg';
+    a.click();
+}
+
 // ==================== DATA OPERATIONS ====================
 async function saveAllWatts() {
     const month = parseInt(document.getElementById('billMonth')?.value || AppState.currentMonth);
@@ -1997,7 +2092,9 @@ async function saveAllWatts() {
         const billData = {
             id: existing ? existing.id : Utils.generateId(),
             residentId, monthKey, wattsUsed: watts, etbAmount: calculateEEPBill(watts).totalAmount,
-            month, year, createdAt: existing ? existing.createdAt : Date.now(), updatedAt: Date.now()
+            month, year,
+            meterPhoto: AppState.meterPhotos[residentId + ':' + monthKey] || (existing && existing.meterPhoto) || null,
+            createdAt: existing ? existing.createdAt : Date.now(), updatedAt: Date.now()
         };
 
         await db.put('bills', billData);
@@ -2146,7 +2243,7 @@ function openDetailModal(residentId, context) {
                     <div class="detail-item"><span class="detail-label">Energy Charge</span><span class="detail-value">${Utils.formatCurrency(eepCalc.energyCharge)} ETB</span></div>
                     <div class="detail-item"><span class="detail-label">Service Charge</span><span class="detail-value">${Utils.formatCurrency(eepCalc.serviceCharge)} ETB</span></div>
                     <div class="detail-item"><span class="detail-label">Regulatory Fee</span><span class="detail-value">${Utils.formatCurrency(eepCalc.regulatoryFee)} ETB</span></div>
-                    <div class="detail-item"><span class="detail-label">VAT (15%)</span><span class="detail-value">${Utils.formatCurrency(eepCalc.tax)} ETB</span></div>
+                    <div class="detail-item"><span class="detail-label">VAT (${eepCalc.taxRate}%)</span><span class="detail-value">${Utils.formatCurrency(eepCalc.tax)} ETB</span></div>
                     ` : ''}
                     <div class="detail-item total"><span class="detail-label">Total Amount</span><span class="detail-value">${Utils.formatCurrency(etb)} ETB</span></div>
                 </div>
@@ -2416,7 +2513,7 @@ function setupSyncUI() {
             const data = await db.exportAll();
                 // Add Block 35 naming
                 const ethMonth = EthiopianCalendar.now();
-                data.exportName = `Block 35 - ${ethMonth.monthName} ${ethMonth.year} (${AppState.currentYear})`;
+                data.exportName = `Block 35 - ${ethMonth.monthName} ${ethMonth.year} EC (Gregorian ${new Date().getFullYear()})`;
                 data.exportDate = new Date().toISOString();
             data.credentials = AppState.credentials;
             data.config = AppState.settings;
@@ -2424,7 +2521,7 @@ function setupSyncUI() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `condobill-backup-${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `Block-35-${ethMonth.monthName}-${ethMonth.year}-backup.json`;
             a.click();
             URL.revokeObjectURL(url);
             showToast(t('toast_exported'), 'success');
@@ -2531,6 +2628,9 @@ function setupSettingsUI() {
             AppState.settings.contactPhone = document.getElementById('settingContactPhone').value.trim();
             AppState.settings.etbPerWatt = document.getElementById('settingEtbPerWatt').value;
             AppState.settings.fixedAmount = parseFloat(document.getElementById('settingFixedAmount').value) || 100;
+            AppState.settings.serviceCharge = parseFloat(document.getElementById('settingServiceCharge').value) || 71.23;
+            AppState.settings.vatRate = parseFloat(document.getElementById('settingVatRate').value) || 15;
+            AppState.settings.regulatoryRate = parseFloat(document.getElementById('settingRegulatoryRate').value) || 0.5;
             AppState.settings.totalFloors = document.getElementById('settingTotalFloors').value;
             AppState.settings.housesPerFloor = document.getElementById('settingHousesPerFloor').value;
             AppState.settings.groundHouses = document.getElementById('settingGroundHouses').value;
@@ -2900,7 +3000,7 @@ async function renderPunish() {
     const month = AppState.currentMonth;
     const year = AppState.currentYear;
     const monthKey = Utils.getMonthKey(year, month);
-    const day = new Date().getDate();
+    const day = EthiopianCalendar.todayDay();
 
     // Find unpaid residents (bills exist but no payment)
     const unpaid = AppState.residents.filter(r => {
@@ -3094,6 +3194,33 @@ async function init() {
         AppState.syncLog = await db.getAll('syncLog');
         AppState.receipts = await db.getAll('receipts');
         AppState.punishments = await db.getAll('punishments');
+
+        // Use the Ethiopian calendar for the current billing period
+        const ethNow = EthiopianCalendar.now();
+        AppState.currentMonth = ethNow.month;
+        AppState.currentYear = ethNow.year;
+
+        // Migrate legacy Gregorian month/year data to the Ethiopian calendar (runs once)
+        if (!AppState.settings.ethiopianCalendarApplied) {
+            for (const b of AppState.bills) {
+                if (b.month && b.year) {
+                    const conv = EthiopianCalendar.toEthiopian(new Date(b.year, (b.month - 1) % 12, 15));
+                    b.month = conv.month; b.year = conv.year;
+                    b.monthKey = Utils.getMonthKey(conv.year, conv.month);
+                    await db.put('bills', b);
+                }
+            }
+            for (const p of AppState.payments) {
+                if (p.month && p.year) {
+                    const conv = EthiopianCalendar.toEthiopian(new Date(p.year, (p.month - 1) % 12, 15));
+                    p.month = conv.month; p.year = conv.year;
+                    p.monthKey = Utils.getMonthKey(conv.year, conv.month);
+                    await db.put('payments', p);
+                }
+            }
+            AppState.settings.ethiopianCalendarApplied = true;
+            await db.put('settings', { key: 'config', value: AppState.settings });
+        }
 
         // Setup (login/theme already done in DOMContentLoaded)
         // Only run event listener setup once to avoid duplicates

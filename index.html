@@ -1162,6 +1162,25 @@
 .wc-bd-row:last-child { border-bottom: none; }
 .wc-bd-total { color: var(--app-brand); font-weight: 700; font-size: 12px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.06); }
 
+/* ===== METER PHOTO (watt reader evidence) ===== */
+.wc-meter { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.wc-meter-thumb {
+    width: 54px; height: 54px; object-fit: cover;
+    border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+    cursor: pointer; transition: transform .2s;
+}
+.wc-meter-thumb:hover { transform: scale(1.05); border-color: var(--app-brand); }
+.wc-meter-add, .wc-meter-del {
+    width: 30px; height: 30px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--dark-900); border: 1px dashed rgba(255,255,255,0.15);
+    color: var(--app-textMuted); cursor: pointer; font-size: 13px;
+    transition: all .2s;
+}
+.wc-meter-add:hover { color: var(--app-brand); border-color: var(--app-brand); }
+.wc-meter-del:hover { color: #ef4444; border-color: #ef4444; }
+.wc-meter-add.hidden, .wc-meter-thumb.hidden { display: none; }
+
 /* ===== RESIDENT CARD (regster.png) ===== */
 .rc-card {
     background: var(--dark-700);
@@ -2019,6 +2038,11 @@
                             <div class="space-y-3">
                                 <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium" data-i18n="settings_etb_per_watt">ETB per Watt</label><input type="number" id="settingEtbPerWatt" step="0.001" min="0" class="dark-input text-xs"></div>
                                 <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium">Fixed Amount for Own Reader (ETB)</label><input type="number" id="settingFixedAmount" step="0.01" min="0" class="dark-input text-xs" placeholder="Default: 100 ETB"></div>
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium">Service Charge (ETB)</label><input type="number" id="settingServiceCharge" step="0.01" min="0" class="dark-input text-xs" placeholder="71.23"></div>
+                                    <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium">VAT (%)</label><input type="number" id="settingVatRate" step="0.1" min="0" class="dark-input text-xs" placeholder="15"></div>
+                                    <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium">Regulatory Fee (%)</label><input type="number" id="settingRegulatoryRate" step="0.1" min="0" class="dark-input text-xs" placeholder="0.5"></div>
+                                </div>
                                 <div class="grid grid-cols-2 gap-3">
                                     <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium" data-i18n="settings_total_floors">Total Floors</label><input type="number" id="settingTotalFloors" min="1" max="50" class="dark-input text-xs"></div>
                                     <div><label class="block text-[11px] text-app-textMuted mb-1.5 font-medium" data-i18n="settings_houses_per_floor">Houses/Floor</label><input type="number" id="settingHousesPerFloor" min="1" max="100" class="dark-input text-xs"></div>
@@ -2252,6 +2276,18 @@
         </div>
     </div>
 
+    <!-- Meter Photo Viewer -->
+    <div id="meterPhotoViewer" class="modal-overlay hidden z-[7000]" onclick="this.classList.add('hidden')">
+        <div class="modal-card sm:max-w-lg" onclick="event.stopPropagation()">
+            <h3 class="text-base font-bold text-app-textBase mb-3">📷 Watt Reader Photo</h3>
+            <img id="meterPhotoViewerImg" src="" alt="Meter reading" style="max-height:65vh;width:100%;object-fit:contain;border-radius:12px;background:var(--dark-900);">
+            <div class="flex gap-2 mt-3">
+                <button id="meterPhotoDownloadBtn" class="btn-brand flex-1 text-xs py-2.5" onclick="downloadMeterPhoto()">⬇ Download</button>
+                <button class="btn-ghost text-xs py-2.5 px-5" onclick="document.getElementById('meterPhotoViewer').classList.add('hidden')">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Batch Watts Modal -->
     <div id="batchWattsModal" class="modal-overlay hidden z-[6000]">
         <div class="modal-card max-h-[90vh] overflow-y-auto sm:max-w-md">
@@ -2333,7 +2369,7 @@
     <!-- Hidden file input -->
     <input type="file" id="importFileInput" accept=".json" class="hidden">
 
-    <script src="app.js?v=20"></script>
+    <script src="app.js?v=21"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
