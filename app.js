@@ -1298,7 +1298,7 @@ async function renderResidents() {
         const typeLabel = r.houseType === 'shared' ? '⚡ Watt' : r.houseType === 'reader' ? '📟 Reader' : '';
         const floorName = r.floor === 0 ? 'Ground' : `${r.floor}${r.floor===1?'st':r.floor===2?'nd':r.floor===3?'rd':'th'}`;
 
-        return `<div class="rc-card" onclick="openDetailModal('${r.id}')">
+        return `<div class="rc-card" onclick="if(!event.target.closest('button'))openDetailModal('${r.id}')">
             <div class="rc-card-top">
                 <div class="rc-card-left">
                     ${avatar}
@@ -1409,18 +1409,14 @@ async function renderBills() {
             </div>`;
         }
 
-        // Action buttons (bottom row)
+        // Action buttons (bottom row) - Pay is only on Payments tab
         let actionHTML = '';
         if (isPaid) {
             actionHTML = `<button onclick="event.stopPropagation();openReceiptViewer('${payment.id}')" class="wc-btn-icon" title="Receipt"><i class="ph ph-receipt"></i></button>`;
-        } else if (bill && bill.wattsUsed > 0) {
-            actionHTML = `<button onclick="event.stopPropagation();openPayModal('${r.id}','${bill.id}')" class="wc-btn-pay" title="Mark Paid" style="background:var(--app-brand);color:var(--dark-900);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;gap:4px;white-space:nowrap;"><i class="ph ph-check-circle"></i> Pay</button>`;
-        } else if (r.houseType === 'reader' && !isPaid) {
-            actionHTML = `<button onclick="event.stopPropagation();openPayModal('${r.id}','${bill ? bill.id : ''}')" class="wc-btn-pay" title="Mark Paid" style="background:var(--app-brand);color:var(--dark-900);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;gap:4px;white-space:nowrap;"><i class="ph ph-check-circle"></i> Pay</button>`;
         }
         const toggleBtn = (eepCalc && watts > 0) ? `<button class="wc-btn-icon" onclick="event.stopPropagation();toggleBreakdown('${r.id}')" title="Show breakdown"><i class="ph ph-caret-down"></i></button>` : '';
 
-        return `<div class="wc-card ${isPaid ? 'wc-paid' : ''}" onclick="openDetailModal('${r.id}')">
+        return `<div class="wc-card ${isPaid ? 'wc-paid' : ''}" onclick="if(!event.target.closest('button'))openDetailModal('${r.id}')">
             <div class="wc-top">
                 <div class="wc-left">
                     ${avatar}
@@ -1557,7 +1553,7 @@ async function renderPayments() {
             receiptBtn = `<button onclick="event.stopPropagation();openPayModal('${r.id}','')" style="background:var(--app-brand);color:var(--dark-900);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;gap:4px;white-space:nowrap;" title="Mark Paid"><i class="ph ph-check-circle"></i> Pay</button>`;
         }
 
-        return `<div class="pay-card ${isPaid ? 'pay-card-paid' : ''}" onclick="openDetailModal('${r.id}')">
+        return `<div class="pay-card ${isPaid ? 'pay-card-paid' : ''}" onclick="if(!event.target.closest('button'))openDetailModal('${r.id}')">
             <div class="pay-card-top">
                 <div class="pay-card-left">
                     ${avatar}
@@ -1784,12 +1780,13 @@ function openPayModal(residentId, billId) {
     
     let bill = billId ? AppState.bills.find(b => b.id === billId) : null;
     
-    // Auto-create bill for own reader if no bill exists
-    if (!bill && r.houseType === 'reader') {
+    // Auto-create bill if no bill exists (for both reader and watt counter)
+    if (!bill) {
         const month = AppState.currentMonth;
         const year = AppState.currentYear;
         const monthKey = Utils.getMonthKey(year, month);
         const fixedAmt = parseFloat(AppState.settings.fixedAmount) || 100;
+        const etbAmount = r.houseType === 'reader' ? fixedAmt : 0;
         bill = {
             id: Utils.generateId(),
             residentId: r.id,
@@ -1797,7 +1794,7 @@ function openPayModal(residentId, billId) {
             month: month,
             year: year,
             wattsUsed: 0,
-            etbAmount: fixedAmt,
+            etbAmount: etbAmount,
             createdAt: new Date().toISOString()
         };
         // Save bill to DB
