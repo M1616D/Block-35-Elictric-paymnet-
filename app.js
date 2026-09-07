@@ -7,7 +7,7 @@
 const TRANSLATIONS = {
     en: {
         nav_dashboard: 'Dashboard', nav_residents: 'Residents', nav_watts: 'Enter Watts',
-        nav_payments: 'Payments', nav_reports: 'Reports', nav_sync: 'Cloud Sync', nav_settings: 'Settings', nav_cover: 'Cover Payment', nav_receipts: 'Receipts',
+        nav_payments: 'Payments', nav_reports: 'Reports', nav_sync: 'Cloud Sync', nav_settings: 'Settings', nav_cover: 'Cover Payment', nav_receipts: 'Receipts', nav_punish: 'Punishment',
         nav_dashboard_short: 'Home', nav_settings_short: 'Settings', nav_residents_short: 'Residents', nav_watts_short: 'Watts',
         nav_payments_short: 'Pay', nav_reports_short: 'Reports',
         stat_total_houses: 'Total Houses', stat_paid: 'Paid', stat_pending: 'Pending', stat_total_etb: 'Total ETB',
@@ -63,11 +63,10 @@ const TRANSLATIONS = {
         confirm_import_title: 'Import', confirm_import_msg: 'Merge imported data with existing?',
         confirm_title_default: 'Confirm',
         filter_expiring: 'Expiring', filter_expired: 'Expired', filter_no_bill: 'Not Billed',
-        filter_expiring: 'Expiring', filter_expired: 'Expired', filter_no_bill: 'Not Billed',
     },
     am: {
         nav_dashboard: 'ዳሽቦርድ', nav_residents: 'ነጋዴዎች', nav_watts: 'ዋት መዝገብ',
-        nav_payments: 'ክፍያ', nav_reports: 'ሪፖርት', nav_sync: 'የደመና ማስማያ', nav_settings: 'ማስተካከያ', nav_cover: 'ኮቨር ክፍያ', nav_receipts: 'ደብዳቤ',
+        nav_payments: 'ክፍያ', nav_reports: 'ሪፖርት', nav_sync: 'የደመና ማስማያ', nav_settings: 'ማስተካከያ', nav_cover: 'ኮቨር ክፍያ', nav_receipts: 'ደብዳቤ', nav_punish: 'ቅጣት',
         nav_dashboard_short: 'መነሻ', nav_settings_short: 'ማስተካከያ', nav_residents_short: 'ነጋዴዎች', nav_watts_short: 'ዋት',
         nav_payments_short: 'ክፍያ', nav_reports_short: 'ሪፖርት',
         stat_total_houses: 'ጠቅላላ ቤት', stat_paid: 'የተከፈለ', stat_pending: 'በመጠባበቅ ላይ', stat_total_etb: 'ጠቅላላ ብር',
@@ -121,7 +120,6 @@ const TRANSLATIONS = {
         confirm_clear_title: 'ሁሉንም ደምድ', confirm_clear_msg: 'ሁሉንም ነጋዴዎች ደምድ?',
         confirm_clear_final: 'የመጨረሻ ማስጠበቅ', confirm_clear_final_msg: 'ይህ የሚመለስ አይደለም። ይቀጥሉ?',
         confirm_import_title: 'ግባ', confirm_import_msg: 'የተቀበለ መረጃ ያስረካ?',
-        filter_expiring: 'በመጠባበቅ ላይ', filter_expired: 'ጊዜው ያለፈ', filter_no_bill: 'ቢል የለም',
         filter_expiring: 'በመጠባበቅ ላይ', filter_expired: 'ጊዜው ያለፈ', filter_no_bill: 'ቢል የለም',
         confirm_title_default: 'አረጋግጥ',
     }
@@ -218,11 +216,6 @@ class Database {
                     s.createIndex('residentId', 'residentId', { unique: false });
                     s.createIndex('monthKey', 'monthKey', { unique: false });
                 }
-                if (!db.objectStoreNames.contains('punishments')) {
-                    const s = db.createObjectStore('punishments', { keyPath: 'id' });
-                    s.createIndex('residentId', 'residentId', { unique: false });
-                    s.createIndex('monthKey', 'monthKey', { unique: false });
-                }
                 if (!db.objectStoreNames.contains('syncLog')) {
                     const s = db.createObjectStore('syncLog', { keyPath: 'id' });
                     s.createIndex('timestamp', 'timestamp', { unique: false });
@@ -293,6 +286,8 @@ const Utils = {
     generateHouseNumber: (floor, i) => floor === 0 ? `G${String(i + 1).padStart(2, '0')}` : `${floor}${String(i + 1).padStart(2, '0')}`,
     getFloorName: (f) => f === 0 ? 'Ground Floor' : f === 1 ? '1st Floor' : f === 2 ? '2nd Floor' : f === 3 ? '3rd Floor' : `${f}th Floor`,
     getInitials: (f, l) => ((f || '')[0] || '') + ((l || '')[0] || ''),
+    esc: (s) => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'),
+    sanitize: (s) => String(s == null ? '' : s).replace(/[<>`]/g, ''),
     debounce: (fn, w) => { let timer; return (...a) => { clearTimeout(timer); timer = setTimeout(() => fn(...a), w); }; },
     populateMonthSelect: (el) => { ['January','February','March','April','May','June','July','August','September','October','November','December'].forEach((n, i) => { const o = document.createElement('option'); o.value = i + 1; o.textContent = n; el.appendChild(o); }); },
     populateYearSelect: (el, range = 5) => { const cy = new Date().getFullYear(); for (let y = cy - range; y <= cy + 1; y++) { const o = document.createElement('option'); o.value = y; o.textContent = y; el.appendChild(o); } },
@@ -304,7 +299,7 @@ const AppState = {
     currentPage: 'dashboard',
     currentMonth: new Date().getMonth() + 1, currentYear: new Date().getFullYear(),
     residents: [], bills: [], payments: [], settings: {}, activity: [], syncLog: [], receipts: [],
-    batchIndex: 0, batchHouses: [], punishments: [], punishments: [],
+    batchIndex: 0, batchHouses: [], punishments: [],
     currentFilter: { floor: 'all', search: '', billFloor: 'all', payStatus: 'all', reportTab: 'overview' },
     lockTimeout: 5, lockTimer: null, lastActivity: Date.now(),
     credentials: { username: 'admin', password: 'admin123' },
@@ -447,12 +442,22 @@ function getReportData(month, year) {
 
     const paid = [], pending = [], overdue = [];
 
+    // O(1) lookups instead of nested find() scans (fast for 200+ residents)
+    const billByResident = new Map();
+    for (const b of AppState.bills) {
+        if (b.monthKey === monthKey) billByResident.set(b.residentId, b);
+    }
+    const payByBill = new Map();
+    for (const p of AppState.payments) {
+        if (p.monthKey === monthKey) payByBill.set(p.billId, p);
+    }
+
     AppState.residents.forEach(r => {
         const f = parseInt(r.floor) || 0;
         if (!floorData[f]) floorData[f] = { total: 0, paid: 0, pending: 0, overdue: 0, expected: 0, collected: 0 };
 
-        const bill = AppState.bills.find(b => b.residentId === r.id && b.monthKey === monthKey);
-        const payment = AppState.payments.find(p => p.billId === (bill ? bill.id : null) && p.monthKey === monthKey);
+        const bill = billByResident.get(r.id);
+        const payment = bill ? payByBill.get(bill.id) : null;
 
         if (bill) {
             floorData[f].expected += bill.etbAmount || 0;
@@ -541,7 +546,7 @@ function generateReceiptHTML(payment, bill, resident, eepCalc, settings) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Receipt - ${residentName}</title>
+    <title>Receipt - ${Utils.esc(residentName)}</title>
     <script src="https://cdn.tailwindcss.com"><\/script>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"><\/script>
@@ -737,8 +742,6 @@ function generateReceiptHTML(payment, bill, resident, eepCalc, settings) {
             Download PNG
         </button>
     </div>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"><\/script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"><\/script>
     <script>
         async function downloadAsPDF() {
             const btn = document.getElementById('dlPdfBtn');
@@ -820,6 +823,9 @@ async function saveReceipt(payment, bill, resident) {
         payment: { amountPaid: payment.amountPaid, method: payment.method, date: payment.date, receipt: payment.receipt },
         createdAt: Date.now()
     };
+    // Remove older receipts for this payment first (upsert semantics)
+    const oldRecs = await db.getAllByIndex('receipts', 'paymentId', payment.id);
+    for (const r0 of oldRecs) { if (r0.id !== receipt.id) await db.delete('receipts', r0.id); }
     await db.put('receipts', receipt);
     return receipt;
 }
@@ -944,9 +950,14 @@ const NotificationSystem = {
     warnings: [],
     async checkDeadlines() {
         this.warnings = [];
+        const mk = Utils.getMonthKey(AppState.currentYear, AppState.currentMonth);
+        const billMap = new Map();
+        for (const b of AppState.bills) if (b.monthKey === mk) billMap.set(b.residentId, b);
+        const payMap = new Map();
+        for (const p of AppState.payments) if (p.monthKey === mk) payMap.set(p.billId, p);
         for (const r of AppState.residents) {
-            const bill = AppState.bills.find(b => b.residentId === r.id && b.monthKey === Utils.getMonthKey(AppState.currentYear, AppState.currentMonth));
-            const payment = bill ? AppState.payments.find(p => p.billId === bill.id && p.monthKey === bill.monthKey) : null;
+            const bill = billMap.get(r.id);
+            const payment = bill ? payMap.get(bill.id) : null;
             if (payment || !bill) continue;
             const status = EthiopianCalendar.getPaymentStatus(bill, payment);
             const deadline = EthiopianCalendar.getPaymentWindow(bill.month, bill.year);
@@ -1244,14 +1255,16 @@ function drawFloorBarChart(canvasId, report) {
         const expH = (fd.expected / maxVal) * (h - padding * 2);
         ctx.fillStyle = 'rgba(255,255,255,0.06)';
         ctx.beginPath();
-        ctx.roundRect(x, h - padding - expH, barWidth, expH, 3);
+        if (typeof ctx.roundRect === 'function') ctx.roundRect(x, h - padding - expH, barWidth, expH, 3);
+        else ctx.rect(x, h - padding - expH, barWidth, expH);
         ctx.fill();
 
         // Collected bar (bright)
         const colH = (fd.collected / maxVal) * (h - padding * 2);
         ctx.fillStyle = '#B5F654';
         ctx.beginPath();
-        ctx.roundRect(x, h - padding - colH, barWidth, colH, 3);
+        if (typeof ctx.roundRect === 'function') ctx.roundRect(x, h - padding - colH, barWidth, colH, 3);
+        else ctx.rect(x, h - padding - colH, barWidth, colH);
         ctx.fill();
 
         // Label
@@ -1549,7 +1562,8 @@ async function renderPayments() {
             receiptBtn = `<button onclick="event.stopPropagation();openReceiptViewer('${item.payment.id}')" class="pay-receipt-btn" title="Receipt"><i class="ph ph-receipt"></i></button>`;
         } else if (item.bill) {
             receiptBtn = `<button onclick="event.stopPropagation();openPayModal('${r.id}','${item.bill.id}')" style="background:var(--app-brand);color:var(--dark-900);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;gap:4px;white-space:nowrap;" title="Mark Paid"><i class="ph ph-check-circle"></i> Pay</button>`;
-        } else if (!isPaid) {
+        } else if (r.houseType === 'reader') {
+            // Own reader: fixed amount, bill auto-created on pay
             receiptBtn = `<button onclick="event.stopPropagation();openPayModal('${r.id}','')" style="background:var(--app-brand);color:var(--dark-900);border-radius:8px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer;border:none;display:flex;align-items:center;gap:4px;white-space:nowrap;" title="Mark Paid"><i class="ph ph-check-circle"></i> Pay</button>`;
         }
 
@@ -1685,7 +1699,10 @@ async function renderCover() {
     // Show existing cover charges
     const coverListEl = el('coverList');
     if (coverListEl) {
-        const coverCharges = AppState.bills.filter(b => b.isCoverCharge);
+        const cm = parseInt(coverMonth ? coverMonth.value : AppState.currentMonth);
+        const cy = parseInt(coverYear ? coverYear.value : AppState.currentYear);
+        const ck = Utils.getMonthKey(cy, cm);
+        const coverCharges = AppState.bills.filter(b => b.isCoverCharge && b.monthKey === ck);
         if (coverCharges.length === 0) {
             coverListEl.innerHTML = `<p class="text-xs text-app-textMuted text-center py-4">No cover charges applied</p>`;
         } else {
@@ -1780,13 +1797,12 @@ async function openPayModal(residentId, billId) {
     
     let bill = billId ? AppState.bills.find(b => b.id === billId) : null;
     
-    // Auto-create bill if no bill exists (for both reader and watt counter)
-    if (!bill) {
+    // Own reader without a bill: auto-create the fixed-amount bill
+    if (!bill && r.houseType === 'reader') {
         const month = AppState.currentMonth;
         const year = AppState.currentYear;
         const monthKey = Utils.getMonthKey(year, month);
         const fixedAmt = parseFloat(AppState.settings.fixedAmount) || 100;
-        const etbAmount = r.houseType === 'reader' ? fixedAmt : 0;
         bill = {
             id: Utils.generateId(),
             residentId: r.id,
@@ -1794,17 +1810,22 @@ async function openPayModal(residentId, billId) {
             month: month,
             year: year,
             wattsUsed: 0,
-            etbAmount: etbAmount,
+            etbAmount: fixedAmt,
             createdAt: new Date().toISOString()
         };
         // Save bill to DB
         await db.put('bills', bill);
         AppState.bills.push(bill);
     }
-    if (!bill) return;
+    if (!bill) {
+        // Watt counter without an entered bill - cannot be marked paid yet
+        showToast('Enter watt reading on the Watts page first', 'warning');
+        return;
+    }
 
     let amountDue = bill.etbAmount || 0;
-    if (bill.wattsUsed > 0) {
+    if ((!amountDue || amountDue <= 0) && bill.wattsUsed > 0) {
+        // Legacy bill without stored total - compute from reading
         amountDue = calculateEEPBill(bill.wattsUsed).totalAmount;
     }
 
@@ -2009,12 +2030,22 @@ async function saveResident(e) {
     try {
         if (id) {
             const existing = await db.get('residents', id);
+            data.firstName = Utils.sanitize(data.firstName);
+            data.lastName = Utils.sanitize(data.lastName);
+            data.houseNumber = Utils.sanitize(data.houseNumber);
+            data.phone = Utils.sanitize(data.phone);
+            data.notes = Utils.sanitize(data.notes);
             await db.put('residents', { ...existing, ...data, updatedAt: Date.now() });
             showToast(t('toast_updated'), 'success');
             await logActivity('Updated resident', `${data.firstName} ${data.lastName}`);
         } else {
             data.id = Utils.generateId();
             data.createdAt = Date.now();
+            data.firstName = Utils.sanitize(data.firstName);
+            data.lastName = Utils.sanitize(data.lastName);
+            data.houseNumber = Utils.sanitize(data.houseNumber);
+            data.phone = Utils.sanitize(data.phone);
+            data.notes = Utils.sanitize(data.notes);
             await db.add('residents', data);
             showToast(t('toast_added'), 'success');
             await logActivity('Added resident', `${data.firstName} ${data.lastName}`);
@@ -2089,8 +2120,8 @@ function openDetailModal(residentId, context) {
     let eepCalc = null;
     if (bill && bill.wattsUsed > 0 && r.houseType !== 'reader') {
         eepCalc = calculateEEPBill(bill.wattsUsed);
-        etb = eepCalc.totalAmount;
-    } else if (r.houseType === 'reader') {
+        if (!etb || etb <= 0) etb = eepCalc.totalAmount;
+    } else if (r.houseType === 'reader' && (!etb || etb <= 0)) {
         etb = parseFloat(AppState.settings.fixedAmount) || 100;
     }
     
@@ -2450,7 +2481,10 @@ function setupCoverPayment() {
             else if (target === 'reader') residents = residents.filter(r => r.houseType === 'reader');
 
             let count = 0;
+            let skipped = 0;
             for (const r of residents) {
+                const already = AppState.bills.find(b => b.residentId === r.id && b.monthKey === monthKey);
+                if (already) { skipped++; continue; }  // resident already has a bill this month
                 const coverBill = {
                     id: Utils.generateId(),
                     residentId: r.id, monthKey, month, year,
@@ -2461,7 +2495,7 @@ function setupCoverPayment() {
                 count++;
             }
             AppState.bills = await db.getAll('bills');
-            showToast(`Applied to ${count} houses`, 'success');
+            showToast(skipped > 0 ? `Applied to ${count}, skipped ${skipped} (already billed this month)` : `Applied to ${count} houses`, 'success');
             renderCover();
         });
     }
@@ -2493,7 +2527,7 @@ function setupSettingsUI() {
             AppState.settings.buildingAddress = document.getElementById('settingBuildingAddress').value.trim();
             AppState.settings.contactPhone = document.getElementById('settingContactPhone').value.trim();
             AppState.settings.etbPerWatt = document.getElementById('settingEtbPerWatt').value;
-            AppState.settings.fixedAmount = parseFloat(document.getElementById('settingFixedAmount').value) || 0;
+            AppState.settings.fixedAmount = parseFloat(document.getElementById('settingFixedAmount').value) || 100;
             AppState.settings.totalFloors = document.getElementById('settingTotalFloors').value;
             AppState.settings.housesPerFloor = document.getElementById('settingHousesPerFloor').value;
             AppState.settings.groundHouses = document.getElementById('settingGroundHouses').value;
@@ -3018,14 +3052,18 @@ async function removePunishment(residentId, monthKey) {
 
 // ==================== LOGOUT ====================
 function handleLogout() {
-    if (confirm('Are you sure you want to logout?')) {
-        localStorage.removeItem('session_token');
-        localStorage.removeItem('session_expires');
-        AppState.currentUser = null;
-        AppState.isLoggedIn = false;
-        document.getElementById('appContainer').classList.add('hidden');
-        document.getElementById('loginScreen').classList.remove('hidden');
-    }
+    if (!confirm('Are you sure you want to logout?')) return;
+    Security.destroySession();
+    clearTimeout(AppState.lockTimer);
+    document.getElementById('loginError').style.display = 'none';
+    const lockScr = document.getElementById('lockScreen');
+    if (lockScr) lockScr.style.display = 'none';
+    const appC = document.getElementById('appContainer');
+    if (appC) appC.style.display = 'none';
+    const ls = document.getElementById('loginScreen');
+    if (ls) ls.style.display = 'flex';
+    const splash = document.getElementById('splash');
+    if (splash) { splash.style.display = 'none'; }
 }
 
 // ==================== INIT ====================
@@ -3052,7 +3090,6 @@ async function init() {
         AppState.payments = await db.getAll('payments');
         AppState.syncLog = await db.getAll('syncLog');
         AppState.receipts = await db.getAll('receipts');
-        AppState.punishments = await db.getAll('punishments');
         AppState.punishments = await db.getAll('punishments');
 
         // Setup (login/theme already done in DOMContentLoaded)
